@@ -4,6 +4,7 @@ import org.aopalliance.intercept.MethodInvocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.aop.support.AopUtils;
+import org.springframework.dao.RecoverableDataAccessException;
 import org.springframework.lang.Nullable;
 import org.springframework.transaction.interceptor.TransactionAttribute;
 import org.springframework.transaction.interceptor.TransactionAttributeSource;
@@ -11,7 +12,10 @@ import org.springframework.transaction.interceptor.TransactionInterceptor;
 import tech.ydb.core.StatusCode;
 import tech.ydb.jdbc.exception.YdbConditionallyRetryableException;
 import tech.ydb.jdbc.exception.YdbRetryableException;
+import tech.ydb.jdbc.exception.YdbStatusable;
 import tech.ydb.jdbc.exception.YdbUnavailbaleException;
+
+import java.sql.SQLException;
 
 import static tech.ydb.core.StatusCode.ABORTED;
 import static tech.ydb.core.StatusCode.BAD_SESSION;
@@ -53,9 +57,12 @@ public class YdbTransactionInterceptor extends TransactionInterceptor {
             log.info("invokeCnt = {} attempt = {}", invokeCnt, i);
             try {
                 return this.invokeWithinTransaction(invocation.getMethod(), targetClass, createCallback(invocation));
-            } catch (YdbRetryableException | YdbConditionallyRetryableException | YdbUnavailbaleException ex) {
+            } catch (RecoverableDataAccessException | SQLException ex) {
                 log.info(String.valueOf(ex));
-                if (ex instanceof YdbRetryableException e) {
+                if (ex.getCause() instanceof YdbRetryableException || ex.getCause() instanceof YdbConditionallyRetryableException || ex.getCause() instanceof YdbUnavailbaleException) {
+                    YdbStatusable e = (YdbStatusable) ex;
+                    log.info("YDB STATUSABLE" + String.valueOf(e));
+
                     if (i == retryConfig.maxAttempts) {
                         throw ex;
                     }
@@ -63,6 +70,7 @@ public class YdbTransactionInterceptor extends TransactionInterceptor {
                     if (delay < 0) {
                         throw ex;
                     }
+
                     Thread.sleep(delay);
                 }
             }
