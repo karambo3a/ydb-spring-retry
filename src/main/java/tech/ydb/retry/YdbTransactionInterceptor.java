@@ -4,105 +4,133 @@ import org.aopalliance.intercept.MethodInvocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.aop.support.AopUtils;
-import org.springframework.dao.RecoverableDataAccessException;
+import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.lang.Nullable;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.interceptor.TransactionAttribute;
 import org.springframework.transaction.interceptor.TransactionAttributeSource;
 import org.springframework.transaction.interceptor.TransactionInterceptor;
 import tech.ydb.core.StatusCode;
-import tech.ydb.jdbc.exception.YdbConditionallyRetryableException;
-import tech.ydb.jdbc.exception.YdbRetryableException;
 import tech.ydb.jdbc.exception.YdbStatusable;
-import tech.ydb.jdbc.exception.YdbUnavailbaleException;
 
-import java.sql.SQLException;
-
-import static tech.ydb.core.StatusCode.ABORTED;
-import static tech.ydb.core.StatusCode.BAD_SESSION;
-import static tech.ydb.core.StatusCode.CLIENT_CANCELLED;
-import static tech.ydb.core.StatusCode.CLIENT_INTERNAL_ERROR;
-import static tech.ydb.core.StatusCode.CLIENT_RESOURCE_EXHAUSTED;
-import static tech.ydb.core.StatusCode.OVERLOADED;
-import static tech.ydb.core.StatusCode.SESSION_BUSY;
-import static tech.ydb.core.StatusCode.TRANSPORT_UNAVAILABLE;
-import static tech.ydb.core.StatusCode.UNAVAILABLE;
-import static tech.ydb.core.StatusCode.UNDETERMINED;
+import java.lang.reflect.Method;
 
 public class YdbTransactionInterceptor extends TransactionInterceptor {
 
     private static final Logger log = LoggerFactory.getLogger(YdbTransactionInterceptor.class);
-    private final YdbRetryPolicyConfig retryConfig = new YdbRetryPolicyConfig();
-    private int invokeCnt = 0;
+    private final YdbRetryPolicyConfig retryConfig;
+    private final YdbRetryPolicy retryPolicy;
+    private final BackoffSleeper backoffSleeper;
+
+    public YdbTransactionInterceptor() {
+        this(new YdbRetryPolicyConfig(), new YdbRetryPolicy(), Thread::sleep);
+    }
+
+    YdbTransactionInterceptor(YdbRetryPolicyConfig retryConfig,
+                              YdbRetryPolicy retryPolicy,
+                              BackoffSleeper backoffSleeper) {
+        this.retryConfig = retryConfig;
+        this.retryPolicy = retryPolicy;
+        this.backoffSleeper = backoffSleeper;
+    }
 
     @Override
     @Nullable
     public Object invoke(final MethodInvocation invocation) throws Throwable {
-        invokeCnt++;
         Class<?> targetClass = invocation.getThis() != null ? AopUtils.getTargetClass(invocation.getThis()) : null;
 
-        // If the transaction attribute is null, the method is non-transactional.
         TransactionAttributeSource tas = getTransactionAttributeSource();
         final TransactionAttribute txAttr = (tas != null ? tas.getTransactionAttribute(invocation.getMethod(), targetClass) : null);
         if (txAttr == null) {
             return this.invokeWithinTransaction(invocation.getMethod(), targetClass, createCallback(invocation));
         }
 
-        return invokeWithinTransactionWithRetryContext(invocation, targetClass);
+        YdbTransaction ydbTransaction = resolveYdbTransactionAnnotation(invocation.getMethod(), targetClass);
+
+        YdbRetryPolicyConfig retryConfig = this.retryConfig.merge(ydbTransaction);
+
+        if (isParticipatingInExistingTransaction(txAttr)) {
+            log.warn(
+                    "YDB retry is disabled for method {} because it participates in an existing transaction",
+                    invocation.getMethod().toGenericString()
+            );
+            return this.invokeWithinTransaction(invocation.getMethod(), targetClass, createCallback(invocation));
+        }
+
+        return invokeWithinTransactionWithRetryContext(invocation, targetClass, retryConfig);
     }
 
-
     @Nullable
-    private Object invokeWithinTransactionWithRetryContext(final MethodInvocation invocation, @Nullable Class<?> targetClass) throws Throwable {
-        for (int i = 0; i <= retryConfig.maxAttempts; i++) {
-            log.info("invokeCnt = {} attempt = {}", invokeCnt, i);
+    private Object invokeWithinTransactionWithRetryContext(final MethodInvocation invocation,
+                                                           @Nullable Class<?> targetClass,
+                                                           YdbRetryPolicyConfig retryConfig) throws Throwable {
+        for (int attempt = 1; attempt <= retryConfig.getMaxAttempts(); attempt++) {
             try {
                 return this.invokeWithinTransaction(invocation.getMethod(), targetClass, createCallback(invocation));
-            } catch (RecoverableDataAccessException | SQLException ex) {
-                log.info(String.valueOf(ex));
-                if (ex.getCause() instanceof YdbRetryableException || ex.getCause() instanceof YdbConditionallyRetryableException || ex.getCause() instanceof YdbUnavailbaleException) {
-                    YdbStatusable e = (YdbStatusable) ex;
-                    log.info("YDB STATUSABLE" + String.valueOf(e));
-
-                    if (i == retryConfig.maxAttempts) {
-                        throw ex;
-                    }
-                    long delay = calculateDelay(e.getStatus().getCode(), i);
-                    if (delay < 0) {
-                        throw ex;
-                    }
-
-                    Thread.sleep(delay);
+            } catch (Throwable ex) {
+                if (ex instanceof Error) {
+                    throw ex;
                 }
+                StatusCode statusCode = extractStatusCode(ex);
+                if (!retryPolicy.shouldRetry(statusCode, retryConfig.isIdempotent())) {
+                    throw ex;
+                }
+                if (attempt == retryConfig.getMaxAttempts()) {
+                    throw ex;
+                }
+                long delay = YdbDelayCalculator.calculateDelay(statusCode, retryConfig, attempt - 1);
+                sleep(delay, ex);
             }
+        }
+        throw new IllegalStateException("retry loop finished unexpectedly");
+    }
+
+    private void sleep(long delay, Throwable originalException) throws Throwable {
+        try {
+            backoffSleeper.sleep(delay);
+        } catch (InterruptedException interruptedException) {
+            Thread.currentThread().interrupt();
+            interruptedException.addSuppressed(originalException);
+            throw interruptedException;
+        }
+    }
+
+    private boolean isParticipatingInExistingTransaction(TransactionAttribute txAttr) {
+        if (!TransactionSynchronizationManager.isActualTransactionActive()) {
+            return false;
+        }
+        int propagationBehavior = txAttr.getPropagationBehavior();
+
+        return propagationBehavior != TransactionDefinition.PROPAGATION_REQUIRES_NEW
+                && propagationBehavior != TransactionDefinition.PROPAGATION_NESTED
+                && propagationBehavior != TransactionDefinition.PROPAGATION_NOT_SUPPORTED
+                && propagationBehavior != TransactionDefinition.PROPAGATION_NEVER;
+    }
+
+    @Nullable
+    private YdbTransaction resolveYdbTransactionAnnotation(Method method, @Nullable Class<?> targetClass) {
+        Method specificMethod = targetClass != null ? AopUtils.getMostSpecificMethod(method, targetClass) : method;
+        YdbTransaction methodLevel = AnnotatedElementUtils.findMergedAnnotation(specificMethod, YdbTransaction.class);
+        if (methodLevel != null) {
+            return methodLevel;
+        }
+        if (targetClass != null) {
+            return AnnotatedElementUtils.findMergedAnnotation(targetClass, YdbTransaction.class);
         }
         return null;
     }
 
-    private long calculateDelay(StatusCode statusCode, int attempt) {
-        // instant
-        if (statusCode == BAD_SESSION || statusCode == SESSION_BUSY) {
-            return 0;
-            // fast + full jitter
-        } else if (statusCode == ABORTED || statusCode == UNDETERMINED || statusCode == CLIENT_CANCELLED || statusCode == CLIENT_INTERNAL_ERROR) {
-            return delayWithFullJitter(retryConfig.fastBackoffBaseMs, retryConfig.fastCapBackoffMs, retryConfig.fastPow, attempt);
-            // fast + equal jitter
-        } else if (statusCode == UNAVAILABLE || statusCode == TRANSPORT_UNAVAILABLE) {
-            return delayWithEqualJitter(retryConfig.fastBackoffBaseMs, retryConfig.fastCapBackoffMs, retryConfig.fastPow, attempt);
-            // slow + equal jitter
-        } else if (statusCode == OVERLOADED || statusCode == CLIENT_RESOURCE_EXHAUSTED) {
-            return delayWithEqualJitter(retryConfig.slowBackoffBaseMs, retryConfig.slowCapBackoffMs, retryConfig.slowPow, attempt);
+    @Nullable
+    private StatusCode extractStatusCode(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof YdbStatusable statusable && statusable.getStatus() != null) {
+                return statusable.getStatus().getCode();
+            }
+            current = current.getCause();
         }
-        return -1;
-    }
-
-    private long delayWithFullJitter(int baseMs, int capMs, int pow, int attempt) {
-        int currentDelay = Math.min(baseMs * ((1 << Math.min(pow, attempt)) - 1), capMs);
-        return retryConfig.getJitter(currentDelay);
-    }
-
-    private long delayWithEqualJitter(int baseMs, int capMs, int pow, int attempt) {
-        int tmp = baseMs * ((1 << Math.min(pow, attempt)) - 1) / 2;
-        return Math.min(tmp + retryConfig.getJitter(tmp), capMs);
+        return null;
     }
 
     private InvocationCallback createCallback(MethodInvocation invocation) {

@@ -22,7 +22,7 @@ public class YdbTransactionAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     public static YdbTransactionInterceptorPostProcessor ydbTransactionInterceptorPostProcessor() {
-        log.info("Creating YdbTransactionInterceptorPostProcessor bean");
+        log.debug("creating YdbTransactionInterceptorPostProcessor bean");
         return new YdbTransactionInterceptorPostProcessor();
     }
 }
