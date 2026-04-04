@@ -7,6 +7,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.transaction.TransactionAutoConfiguration;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.transaction.interceptor.TransactionInterceptor;
@@ -15,14 +16,16 @@ import org.springframework.transaction.interceptor.TransactionInterceptor;
 @AutoConfigureBefore(TransactionAutoConfiguration.class)
 @ConditionalOnClass(TransactionInterceptor.class)
 @ConditionalOnProperty(name = "ydb.transaction.retry.enabled", matchIfMissing = true)
+@EnableConfigurationProperties(YdbRetryProperties.class)
 public class YdbTransactionAutoConfiguration {
 
     private static final Logger log = LoggerFactory.getLogger(YdbTransactionAutoConfiguration.class);
 
     @Bean
     @ConditionalOnMissingBean
-    public static YdbTransactionInterceptorPostProcessor ydbTransactionInterceptorPostProcessor() {
+    public static YdbTransactionInterceptorPostProcessor ydbTransactionInterceptorPostProcessor(
+            YdbRetryProperties properties) {
         log.debug("creating YdbTransactionInterceptorPostProcessor bean");
-        return new YdbTransactionInterceptorPostProcessor();
+        return new YdbTransactionInterceptorPostProcessor(properties);
     }
 }

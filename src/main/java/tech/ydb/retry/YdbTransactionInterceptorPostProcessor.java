@@ -18,7 +18,12 @@ import java.lang.reflect.Field;
 public class YdbTransactionInterceptorPostProcessor implements BeanPostProcessor, PriorityOrdered, BeanFactoryAware {
 
     private static final Logger log = LoggerFactory.getLogger(YdbTransactionInterceptorPostProcessor.class);
+    private final YdbRetryProperties properties;
     private BeanFactory beanFactory;
+
+    public YdbTransactionInterceptorPostProcessor(YdbRetryProperties properties) {
+        this.properties = properties;
+    }
 
     @Override
     public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
@@ -27,7 +32,10 @@ public class YdbTransactionInterceptorPostProcessor implements BeanPostProcessor
 
             log.debug("REPLACING TransactionInterceptor with YdbTransactionInterceptor for bean: {}", beanName);
 
-            YdbTransactionInterceptor ydbInterceptor = new YdbTransactionInterceptor();
+            YdbRetryPolicyConfig retryConfig = properties.toConfig();
+            YdbTransactionInterceptor ydbInterceptor = new YdbTransactionInterceptor(
+                    retryConfig, new YdbRetryPolicy(), Thread::sleep
+            );
 
             ydbInterceptor.setTransactionAttributeSource(
                     standardInterceptor.getTransactionAttributeSource());

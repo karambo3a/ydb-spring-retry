@@ -48,5 +48,5 @@ public @interface YdbTransaction {
 
     int fastCapBackoffMs() default -1;
 
-    boolean isIdempotent() default false;
+    int idempotent() default -1;
 }

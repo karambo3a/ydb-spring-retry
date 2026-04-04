@@ -102,7 +102,7 @@ public final class YdbRetryPolicyConfig {
                 checkCandidate("fastBackoffBaseMs", transactionPolicy.fastBackoffBaseMs(), fastBackoffBaseMs),
                 checkCandidate("slowCapBackoffMs", transactionPolicy.slowCapBackoffMs(), slowCapBackoffMs),
                 checkCandidate("fastCapBackoffMs", transactionPolicy.fastCapBackoffMs(), fastCapBackoffMs),
-                transactionPolicy.isIdempotent()
+                checkIdempotent(transactionPolicy.idempotent(), isIdempotent)
         );
     }
 
@@ -111,6 +111,16 @@ public final class YdbRetryPolicyConfig {
             throw new IllegalArgumentException(String.format("%s is invalid", name));
         }
         return candidate == -1 ? fallback : candidate;
+    }
+
+    private static boolean checkIdempotent(int candidate, boolean fallback) {
+        if (candidate == -1) {
+            return fallback;
+        }
+        if (candidate < -1 || candidate > 1) {
+            throw new IllegalArgumentException("idempotent must be -1, 0, or 1");
+        }
+        return candidate == 1;
     }
 
     private static int powerForCap(int capMs) {
