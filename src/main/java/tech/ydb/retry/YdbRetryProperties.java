@@ -5,12 +5,21 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "ydb.transaction.retry")
 public class YdbRetryProperties {
 
+    private boolean enabled = YdbRetryPolicyConfig.DEFAULT_ENABLED;
     private int maxAttempts = YdbRetryPolicyConfig.DEFAULT_MAX_ATTEMPTS;
     private int slowBackoffBaseMs = YdbRetryPolicyConfig.DEFAULT_SLOW_BACKOFF_BASE_MS;
     private int fastBackoffBaseMs = YdbRetryPolicyConfig.DEFAULT_FAST_BACKOFF_BASE_MS;
     private int slowCapBackoffMs = YdbRetryPolicyConfig.DEFAULT_SLOW_CAP_BACKOFF_MS;
     private int fastCapBackoffMs = YdbRetryPolicyConfig.DEFAULT_FAST_CAP_BACKOFF_MS;
-    private boolean idempotent = false;
+    private boolean idempotent = YdbRetryPolicyConfig.DEFAULT_IDEMPOTENT;
+
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
 
     public int getMaxAttempts() {
         return maxAttempts;
@@ -62,6 +71,7 @@ public class YdbRetryProperties {
 
     public YdbRetryPolicyConfig toConfig() {
         return new YdbRetryPolicyConfig(
+                enabled,
                 maxAttempts,
                 slowBackoffBaseMs,
                 fastBackoffBaseMs,

@@ -23,18 +23,17 @@ abstract class InterceptorTestSupport {
         TransactionSynchronizationManager.clear();
     }
 
-    static TestableInterceptor interceptorWithConfig(int maxAttempts, int slowBase, int fastBase,
+    static TestableInterceptor interceptorWithConfig(boolean enabled, int maxAttempts, int slowBase, int fastBase,
                                                      int slowCap, int fastCap, boolean isIdempotent) {
-        return interceptorWithSleeper(maxAttempts, slowBase, fastBase, slowCap, fastCap, isIdempotent, delay -> {
+        return interceptorWithSleeper(enabled, maxAttempts, slowBase, fastBase, slowCap, fastCap, isIdempotent, delay -> {
         });
     }
 
-    static TestableInterceptor interceptorWithSleeper(int maxAttempts, int slowBase, int fastBase,
+    static TestableInterceptor interceptorWithSleeper(boolean enabled, int maxAttempts, int slowBase, int fastBase,
                                                       int slowCap, int fastCap, boolean isIdempotent,
                                                       BackoffSleeper sleeper) {
         TestableInterceptor interceptor = new TestableInterceptor(
-                new YdbRetryPolicyConfig(maxAttempts, slowBase, fastBase, slowCap, fastCap, isIdempotent),
-                new YdbRetryPolicy(),
+                new YdbRetryPolicyConfig(enabled, maxAttempts, slowBase, fastBase, slowCap, fastCap, isIdempotent),
                 sleeper
         );
         interceptor.setTransactionAttributeSource(new AnnotationTransactionAttributeSource());
@@ -73,10 +72,9 @@ abstract class InterceptorTestSupport {
         private final Deque<Object> outcomes = new ArrayDeque<>();
         private final AtomicInteger attempts = new AtomicInteger();
 
-        TestableInterceptor(YdbRetryPolicyConfig defaultRetryConfig,
-                            YdbRetryPolicy defaultRetryDecider,
+        TestableInterceptor(YdbRetryPolicyConfig retryConfig,
                             BackoffSleeper backoffSleeper) {
-            super(defaultRetryConfig, defaultRetryDecider, backoffSleeper);
+            super(retryConfig, backoffSleeper);
         }
 
         void enqueueOutcome(Object... results) {

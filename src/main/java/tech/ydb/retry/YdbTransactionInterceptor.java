@@ -20,18 +20,15 @@ public class YdbTransactionInterceptor extends TransactionInterceptor {
 
     private static final Logger log = LoggerFactory.getLogger(YdbTransactionInterceptor.class);
     private final YdbRetryPolicyConfig retryConfig;
-    private final YdbRetryPolicy retryPolicy;
     private final BackoffSleeper backoffSleeper;
 
     public YdbTransactionInterceptor() {
-        this(new YdbRetryPolicyConfig(), new YdbRetryPolicy(), Thread::sleep);
+        this(new YdbRetryPolicyConfig(), Thread::sleep);
     }
 
     YdbTransactionInterceptor(YdbRetryPolicyConfig retryConfig,
-                              YdbRetryPolicy retryPolicy,
                               BackoffSleeper backoffSleeper) {
         this.retryConfig = retryConfig;
-        this.retryPolicy = retryPolicy;
         this.backoffSleeper = backoffSleeper;
     }
 
@@ -58,6 +55,11 @@ public class YdbTransactionInterceptor extends TransactionInterceptor {
             return this.invokeWithinTransaction(invocation.getMethod(), targetClass, createCallback(invocation));
         }
 
+        if (!retryConfig.isEnabled()) {
+            log.debug("YDB retry is disabled for method {}", invocation.getMethod().toGenericString());
+            return this.invokeWithinTransaction(invocation.getMethod(), targetClass, createCallback(invocation));
+        }
+
         return invokeWithinTransactionWithRetryContext(invocation, targetClass, retryConfig);
     }
 
@@ -73,7 +75,7 @@ public class YdbTransactionInterceptor extends TransactionInterceptor {
                     throw ex;
                 }
                 StatusCode statusCode = extractStatusCode(ex);
-                if (!retryPolicy.shouldRetry(statusCode, retryConfig.isIdempotent())) {
+                if (!YdbRetryPolicy.shouldRetry(statusCode, retryConfig.isIdempotent())) {
                     throw ex;
                 }
                 if (attempt == retryConfig.getMaxAttempts()) {

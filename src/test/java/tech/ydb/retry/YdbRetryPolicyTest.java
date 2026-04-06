@@ -29,10 +29,7 @@ import static tech.ydb.core.StatusCode.UNAVAILABLE;
 import static tech.ydb.core.StatusCode.UNDETERMINED;
 import static tech.ydb.core.StatusCode.UNSUPPORTED;
 
-class YdbRetryDeciderTest {
-
-    private final YdbRetryPolicy decider = new YdbRetryPolicy();
-
+class YdbRetryPolicyTest {
     @Test
     void shouldRetryAlwaysRetryableStatusesRegardlessOfIdempotence() {
         List<StatusCode> alwaysRetryable = List.of(
@@ -48,8 +45,8 @@ class YdbRetryDeciderTest {
         );
 
         for (StatusCode code : alwaysRetryable) {
-            assertTrue(decider.shouldRetry(code, false), "Should retry " + code + " when not idempotent");
-            assertTrue(decider.shouldRetry(code, true), "Should retry " + code + " when idempotent");
+            assertTrue(YdbRetryPolicy.shouldRetry(code, false), "Should retry " + code + " when not idempotent");
+            assertTrue(YdbRetryPolicy.shouldRetry(code, true), "Should retry " + code + " when idempotent");
         }
     }
 
@@ -58,7 +55,7 @@ class YdbRetryDeciderTest {
         List<StatusCode> idempotentOnly = List.of(TIMEOUT, SESSION_EXPIRED, UNDETERMINED);
 
         for (StatusCode code : idempotentOnly) {
-            assertFalse(decider.shouldRetry(code, false), "Should not retry " + code + " when not idempotent");
+            assertFalse(YdbRetryPolicy.shouldRetry(code, false), "Should not retry " + code + " when not idempotent");
         }
     }
 
@@ -67,7 +64,7 @@ class YdbRetryDeciderTest {
         List<StatusCode> idempotentOnly = List.of(TIMEOUT, SESSION_EXPIRED, UNDETERMINED);
 
         for (StatusCode code : idempotentOnly) {
-            assertTrue(decider.shouldRetry(code, true), "Should retry " + code + " when idempotent");
+            assertTrue(YdbRetryPolicy.shouldRetry(code, true), "Should retry " + code + " when idempotent");
         }
     }
 
@@ -87,14 +84,14 @@ class YdbRetryDeciderTest {
         );
 
         for (StatusCode code : nonRetryable) {
-            assertFalse(decider.shouldRetry(code, false), "Should not retry " + code + " when not idempotent");
-            assertFalse(decider.shouldRetry(code, true), "Should not retry " + code + " when idempotent");
+            assertFalse(YdbRetryPolicy.shouldRetry(code, false), "Should not retry " + code + " when not idempotent");
+            assertFalse(YdbRetryPolicy.shouldRetry(code, true), "Should not retry " + code + " when idempotent");
         }
     }
 
     @Test
     void shouldNotRetryNullStatusCode() {
-        assertFalse(decider.shouldRetry(null, false));
-        assertFalse(decider.shouldRetry(null, true));
+        assertFalse(YdbRetryPolicy.shouldRetry(null, false));
+        assertFalse(YdbRetryPolicy.shouldRetry(null, true));
     }
 }

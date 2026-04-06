@@ -4,12 +4,15 @@ import java.util.concurrent.ThreadLocalRandom;
 import org.springframework.lang.Nullable;
 
 public final class YdbRetryPolicyConfig {
+    public static final boolean DEFAULT_ENABLED = true;
     public static final int DEFAULT_MAX_ATTEMPTS = 10;
     public static final int DEFAULT_SLOW_BACKOFF_BASE_MS = 50;
     public static final int DEFAULT_FAST_BACKOFF_BASE_MS = 5;
     public static final int DEFAULT_SLOW_CAP_BACKOFF_MS = 5_000;
     public static final int DEFAULT_FAST_CAP_BACKOFF_MS = 500;
+    public static final boolean DEFAULT_IDEMPOTENT = false;
 
+    private final boolean enabled;
     private final int maxAttempts;
     private final int slowBackoffBaseMs;
     private final int fastBackoffBaseMs;
@@ -17,10 +20,11 @@ public final class YdbRetryPolicyConfig {
     private final int fastCapBackoffMs;
     private final int slowPow;
     private final int fastPow;
-    private final boolean isIdempotent;
+    private final boolean idempotent;
 
     public YdbRetryPolicyConfig() {
         this(
+                DEFAULT_ENABLED,
                 DEFAULT_MAX_ATTEMPTS,
                 DEFAULT_SLOW_BACKOFF_BASE_MS,
                 DEFAULT_FAST_BACKOFF_BASE_MS,
@@ -30,19 +34,20 @@ public final class YdbRetryPolicyConfig {
         );
     }
 
-    public YdbRetryPolicyConfig(int maxAttempts, int slowBackoffBaseMs, int fastBackoffBaseMs,
+    public YdbRetryPolicyConfig(boolean enabled, int maxAttempts, int slowBackoffBaseMs, int fastBackoffBaseMs,
                                 int slowCapBackoffMs, int fastCapBackoffMs) {
-        this(maxAttempts, slowBackoffBaseMs, fastBackoffBaseMs, slowCapBackoffMs, fastCapBackoffMs, false);
+        this(enabled, maxAttempts, slowBackoffBaseMs, fastBackoffBaseMs, slowCapBackoffMs, fastCapBackoffMs, false);
     }
 
-    public YdbRetryPolicyConfig(int maxAttempts, int slowBackoffBaseMs, int fastBackoffBaseMs,
-                                int slowCapBackoffMs, int fastCapBackoffMs, boolean isIdempotent) {
+    public YdbRetryPolicyConfig(boolean enabled, int maxAttempts, int slowBackoffBaseMs, int fastBackoffBaseMs,
+                                int slowCapBackoffMs, int fastCapBackoffMs, boolean idempotent) {
         if (maxAttempts < 1) {
             throw new IllegalArgumentException("maxAttempts must be >= 1");
         }
         if (slowBackoffBaseMs < 0 || fastBackoffBaseMs < 0 || slowCapBackoffMs < 0 || fastCapBackoffMs < 0) {
             throw new IllegalArgumentException("backoff values must be >= 0");
         }
+        this.enabled = enabled;
         this.slowBackoffBaseMs = slowBackoffBaseMs;
         this.fastBackoffBaseMs = fastBackoffBaseMs;
         this.slowCapBackoffMs = slowCapBackoffMs;
@@ -50,7 +55,7 @@ public final class YdbRetryPolicyConfig {
         this.maxAttempts = maxAttempts;
         this.slowPow = powerForCap(this.slowCapBackoffMs);
         this.fastPow = powerForCap(this.fastCapBackoffMs);
-        this.isIdempotent = isIdempotent;
+        this.idempotent = idempotent;
     }
 
     public long getJitter(long bound) {
@@ -58,6 +63,10 @@ public final class YdbRetryPolicyConfig {
             return 0;
         }
         return ThreadLocalRandom.current().nextLong(bound);
+    }
+
+    public boolean isEnabled() {
+        return enabled;
     }
 
     public int getMaxAttempts() {
@@ -89,7 +98,7 @@ public final class YdbRetryPolicyConfig {
     }
 
     public boolean isIdempotent() {
-        return isIdempotent;
+        return idempotent;
     }
 
     public YdbRetryPolicyConfig merge(@Nullable YdbTransaction transactionPolicy) {
@@ -97,12 +106,13 @@ public final class YdbRetryPolicyConfig {
             return this;
         }
         return new YdbRetryPolicyConfig(
+                enabled,
                 checkCandidate("maxAttempts", transactionPolicy.maxAttempts(), maxAttempts),
                 checkCandidate("slowBackoffBaseMs", transactionPolicy.slowBackoffBaseMs(), slowBackoffBaseMs),
                 checkCandidate("fastBackoffBaseMs", transactionPolicy.fastBackoffBaseMs(), fastBackoffBaseMs),
                 checkCandidate("slowCapBackoffMs", transactionPolicy.slowCapBackoffMs(), slowCapBackoffMs),
                 checkCandidate("fastCapBackoffMs", transactionPolicy.fastCapBackoffMs(), fastCapBackoffMs),
-                checkIdempotent(transactionPolicy.idempotent(), isIdempotent)
+                checkIdempotent(transactionPolicy.idempotent(), idempotent)
         );
     }
 

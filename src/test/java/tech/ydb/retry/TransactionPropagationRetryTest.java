@@ -9,15 +9,13 @@ import static tech.ydb.core.StatusCode.ABORTED;
 import static tech.ydb.core.StatusCode.BAD_SESSION;
 import static tech.ydb.core.StatusCode.CLIENT_CANCELLED;
 
-import org.springframework.transaction.IllegalTransactionStateException;
-
 class TransactionPropagationRetryTest extends InterceptorTestSupport {
 
     @Test
     void shouldDisableRetryWhenParticipatingInOuterTransaction() {
         TransactionSynchronizationManager.setActualTransactionActive(true);
 
-        TestableInterceptor interceptor = interceptorWithConfig(1, 0, 0, 0, 0, false);
+        TestableInterceptor interceptor = interceptorWithConfig(true, 1, 0, 0, 0, 0, false);
         interceptor.enqueueOutcome(new IllegalStateException("no retry expected"));
 
         assertThrows(
@@ -31,7 +29,7 @@ class TransactionPropagationRetryTest extends InterceptorTestSupport {
     void shouldRetryWithRequiresNewInsideOuterTransaction() throws Throwable {
         TransactionSynchronizationManager.setActualTransactionActive(true);
 
-        TestableInterceptor interceptor = interceptorWithConfig(1, 0, 0, 0, 0, false);
+        TestableInterceptor interceptor = interceptorWithConfig(true, 1, 0, 0, 0, 0, false);
         interceptor.enqueueOutcome(new ConfigurableStatusException(BAD_SESSION), "ok");
 
         Object result = interceptor.invoke(invocationFor("ydbRequiresNewRetry"));
@@ -44,7 +42,7 @@ class TransactionPropagationRetryTest extends InterceptorTestSupport {
     void shouldRetryWithNestedPropagationInsideOuterTransaction() throws Throwable {
         TransactionSynchronizationManager.setActualTransactionActive(true);
 
-        TestableInterceptor interceptor = interceptorWithConfig(1, 0, 0, 0, 0, false);
+        TestableInterceptor interceptor = interceptorWithConfig(true, 1, 0, 0, 0, 0, false);
         interceptor.enqueueOutcome(new ConfigurableStatusException(ABORTED), "ok");
 
         Object result = interceptor.invoke(invocationFor("ydbNestedRetry"));
@@ -57,7 +55,7 @@ class TransactionPropagationRetryTest extends InterceptorTestSupport {
     void shouldRetryWithNotSupportedPropagationInsideOuterTransaction() throws Throwable {
         TransactionSynchronizationManager.setActualTransactionActive(true);
 
-        TestableInterceptor interceptor = interceptorWithConfig(1, 0, 0, 0, 0, false);
+        TestableInterceptor interceptor = interceptorWithConfig(true, 1, 0, 0, 0, 0, false);
         interceptor.enqueueOutcome(new ConfigurableStatusException(CLIENT_CANCELLED), "ok");
 
         Object result = interceptor.invoke(invocationFor("ydbNotSupportedRetry"));

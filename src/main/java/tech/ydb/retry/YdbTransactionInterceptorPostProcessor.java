@@ -34,7 +34,7 @@ public class YdbTransactionInterceptorPostProcessor implements BeanPostProcessor
 
             YdbRetryPolicyConfig retryConfig = properties.toConfig();
             YdbTransactionInterceptor ydbInterceptor = new YdbTransactionInterceptor(
-                    retryConfig, new YdbRetryPolicy(), Thread::sleep
+                    retryConfig, Thread::sleep
             );
 
             ydbInterceptor.setTransactionAttributeSource(
