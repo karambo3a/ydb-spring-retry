@@ -52,7 +52,7 @@ abstract class InterceptorTestSupport {
 
     private static Object targetFor(String methodName) {
         if (methodName.startsWith("ydb") || methodName.startsWith("default")) {
-            return new YdbTransactionTestService();
+            return new YdbTransactionalTestService();
         }
         return new TransactionalTestService();
     }
@@ -60,7 +60,7 @@ abstract class InterceptorTestSupport {
     static Method methodOf(String methodName) {
         try {
             if (methodName.startsWith("ydb") || methodName.startsWith("default")) {
-                return YdbTransactionTestService.class.getMethod(methodName);
+                return YdbTransactionalTestService.class.getMethod(methodName);
             }
             return TransactionalTestService.class.getMethod(methodName);
         } catch (NoSuchMethodException e) {
@@ -106,53 +106,53 @@ abstract class InterceptorTestSupport {
         }
     }
 
-    static class YdbTransactionTestService {
-        @YdbTransaction(maxAttempts = 2)
+    static class YdbTransactionalTestService {
+        @YdbTransactional(maxAttempts = 2)
         public String ydbCustomRetry() {
             return "ok";
         }
 
-        @YdbTransaction(maxAttempts = 5)
+        @YdbTransactional(maxAttempts = 5)
         public String ydbRequiredRetry() {
             return "ok";
         }
 
-        @YdbTransaction(maxAttempts = 2, propagation = Propagation.REQUIRES_NEW)
+        @YdbTransactional(maxAttempts = 2, propagation = Propagation.REQUIRES_NEW)
         public String ydbRequiresNewRetry() {
             return "ok";
         }
 
-        @YdbTransaction(maxAttempts = 3, propagation = Propagation.NESTED)
+        @YdbTransactional(maxAttempts = 3, propagation = Propagation.NESTED)
         public String ydbNestedRetry() {
             return "ok";
         }
 
-        @YdbTransaction(maxAttempts = 3, propagation = Propagation.NOT_SUPPORTED)
+        @YdbTransactional(maxAttempts = 3, propagation = Propagation.NOT_SUPPORTED)
         public String ydbNotSupportedRetry() {
             return "ok";
         }
 
-        @YdbTransaction
+        @YdbTransactional
         public String defaultRetry() {
             return "ok";
         }
 
-        @YdbTransaction(maxAttempts = 100, slowBackoffBaseMs = 200, fastBackoffBaseMs = 10, slowCapBackoffMs = 10000, fastCapBackoffMs = 12)
+        @YdbTransactional(maxAttempts = 100, slowBackoffBaseMs = 200, fastBackoffBaseMs = 10, slowCapBackoffMs = 10000, fastCapBackoffMs = 12)
         public String ydbNewTransactionSettings() {
             return "ok";
         }
 
-        @YdbTransaction(maxAttempts = -2)
+        @YdbTransactional(maxAttempts = -2)
         public String ydbNegativeMaxAttempts() {
             return "ok";
         }
 
-        @YdbTransaction(maxAttempts = 5, idempotent = 1)
+        @YdbTransactional(maxAttempts = 5, idempotent = 1)
         public String ydbIdempotentRetry() {
             return "ok";
         }
 
-        @YdbTransaction(maxAttempts = 3, idempotent = 0)
+        @YdbTransactional(maxAttempts = 3, idempotent = 0)
         public String ydbNonIdempotentRetry() {
             return "ok";
         }

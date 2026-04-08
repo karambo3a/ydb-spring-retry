@@ -43,9 +43,9 @@ public class YdbTransactionInterceptor extends TransactionInterceptor {
             return this.invokeWithinTransaction(invocation.getMethod(), targetClass, createCallback(invocation));
         }
 
-        YdbTransaction ydbTransaction = resolveYdbTransactionAnnotation(invocation.getMethod(), targetClass);
+        YdbTransactional ydbTransactional = resolveYdbTransactionAnnotation(invocation.getMethod(), targetClass);
 
-        YdbRetryPolicyConfig retryConfig = this.retryConfig.merge(ydbTransaction);
+        YdbRetryPolicyConfig retryConfig = this.retryConfig.merge(ydbTransactional);
 
         if (isParticipatingInExistingTransaction(txAttr)) {
             log.warn(
@@ -111,14 +111,14 @@ public class YdbTransactionInterceptor extends TransactionInterceptor {
     }
 
     @Nullable
-    private YdbTransaction resolveYdbTransactionAnnotation(Method method, @Nullable Class<?> targetClass) {
+    private YdbTransactional resolveYdbTransactionAnnotation(Method method, @Nullable Class<?> targetClass) {
         Method specificMethod = targetClass != null ? AopUtils.getMostSpecificMethod(method, targetClass) : method;
-        YdbTransaction methodLevel = AnnotatedElementUtils.findMergedAnnotation(specificMethod, YdbTransaction.class);
+        YdbTransactional methodLevel = AnnotatedElementUtils.findMergedAnnotation(specificMethod, YdbTransactional.class);
         if (methodLevel != null) {
             return methodLevel;
         }
         if (targetClass != null) {
-            return AnnotatedElementUtils.findMergedAnnotation(targetClass, YdbTransaction.class);
+            return AnnotatedElementUtils.findMergedAnnotation(targetClass, YdbTransactional.class);
         }
         return null;
     }

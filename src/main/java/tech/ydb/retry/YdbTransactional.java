@@ -18,7 +18,7 @@ import java.lang.annotation.Target;
 @Documented
 @Inherited
 @Transactional
-public @interface YdbTransaction {
+public @interface YdbTransactional {
 
     @AliasFor(annotation = Transactional.class, attribute = "transactionManager")
     String transactionManager() default "";
@@ -37,6 +37,18 @@ public @interface YdbTransaction {
 
     @AliasFor(annotation = Transactional.class, attribute = "readOnly")
     boolean readOnly() default false;
+
+    @AliasFor(annotation = Transactional.class, attribute = "rollbackFor")
+    Class<? extends Throwable>[] rollbackFor() default {};
+
+    @AliasFor(annotation = Transactional.class, attribute = "rollbackForClassName")
+    String[] rollbackForClassName() default {};
+
+    @AliasFor(annotation = Transactional.class, attribute = "noRollbackFor")
+    Class<? extends Throwable>[] noRollbackFor() default {};
+
+    @AliasFor(annotation = Transactional.class, attribute = "noRollbackForClassName")
+    String[] noRollbackForClassName() default {};
 
     int maxAttempts() default -1;
 

@@ -17,7 +17,7 @@ import static tech.ydb.core.StatusCode.TIMEOUT;
 import static tech.ydb.core.StatusCode.TRANSPORT_UNAVAILABLE;
 import static tech.ydb.core.StatusCode.UNDETERMINED;
 
-class YdbTransactionConfigOverrideTest extends InterceptorTestSupport {
+class YdbTransactionalConfigOverrideTest extends InterceptorTestSupport {
 
     @Test
     void shouldOverrideMaxAttemptsFromAnnotation() throws Throwable {

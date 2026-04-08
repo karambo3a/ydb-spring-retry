@@ -30,7 +30,7 @@ public final class YdbRetryPolicyConfig {
                 DEFAULT_FAST_BACKOFF_BASE_MS,
                 DEFAULT_SLOW_CAP_BACKOFF_MS,
                 DEFAULT_FAST_CAP_BACKOFF_MS,
-                false
+                DEFAULT_IDEMPOTENT
         );
     }
 
@@ -101,7 +101,7 @@ public final class YdbRetryPolicyConfig {
         return idempotent;
     }
 
-    public YdbRetryPolicyConfig merge(@Nullable YdbTransaction transactionPolicy) {
+    public YdbRetryPolicyConfig merge(@Nullable YdbTransactional transactionPolicy) {
         if (transactionPolicy == null) {
             return this;
         }

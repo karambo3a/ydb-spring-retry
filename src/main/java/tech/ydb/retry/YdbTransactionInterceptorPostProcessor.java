@@ -7,7 +7,6 @@ import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.BeanFactoryAware;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.core.Ordered;
-import org.springframework.core.PriorityOrdered;
 import org.springframework.lang.Nullable;
 import org.springframework.transaction.interceptor.TransactionAspectSupport;
 import org.springframework.transaction.interceptor.TransactionInterceptor;
@@ -15,7 +14,7 @@ import org.springframework.util.ReflectionUtils;
 
 import java.lang.reflect.Field;
 
-public class YdbTransactionInterceptorPostProcessor implements BeanPostProcessor, PriorityOrdered, BeanFactoryAware {
+public class YdbTransactionInterceptorPostProcessor implements BeanPostProcessor, Ordered, BeanFactoryAware {
 
     private static final Logger log = LoggerFactory.getLogger(YdbTransactionInterceptorPostProcessor.class);
     private final YdbRetryProperties properties;
@@ -54,7 +53,7 @@ public class YdbTransactionInterceptorPostProcessor implements BeanPostProcessor
 
     @Override
     public int getOrder() {
-        return HIGHEST_PRECEDENCE;
+        return Ordered.LOWEST_PRECEDENCE;
     }
 
     @Override

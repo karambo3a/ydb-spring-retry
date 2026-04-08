@@ -11,9 +11,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.springframework.core.Ordered.HIGHEST_PRECEDENCE;
+import static org.springframework.core.Ordered.LOWEST_PRECEDENCE;
 
-class YdbTransactionInterceptorPostProcessorTest {
+class YdbTransactionalInterceptorPostProcessorTest {
 
     private final YdbRetryProperties defaultProperties = new YdbRetryProperties();
 
@@ -76,8 +76,8 @@ class YdbTransactionInterceptorPostProcessorTest {
     }
 
     @Test
-    void shouldHaveHighestPrecedenceOrder() {
+    void shouldHaveLowestPrecedenceOrder() {
         YdbTransactionInterceptorPostProcessor pp = new YdbTransactionInterceptorPostProcessor(defaultProperties);
-        assertEquals(HIGHEST_PRECEDENCE, pp.getOrder());
+        assertEquals(LOWEST_PRECEDENCE, pp.getOrder());
     }
 }
