@@ -43,17 +43,16 @@ public class YdbTransactionInterceptor extends TransactionInterceptor {
             return this.invokeWithinTransaction(invocation.getMethod(), targetClass, createCallback(invocation));
         }
 
-        YdbTransactional ydbTransactional = resolveYdbTransactionAnnotation(invocation.getMethod(), targetClass);
-
-        YdbRetryPolicyConfig retryConfig = this.retryConfig.merge(ydbTransactional);
-
         if (isParticipatingInExistingTransaction(txAttr)) {
-            log.warn(
+            log.debug(
                     "YDB retry is disabled for method {} because it participates in an existing transaction",
                     invocation.getMethod().toGenericString()
             );
             return this.invokeWithinTransaction(invocation.getMethod(), targetClass, createCallback(invocation));
         }
+
+        YdbTransactional ydbTransactional = resolveYdbTransactionAnnotation(invocation.getMethod(), targetClass);
+        YdbRetryPolicyConfig retryConfig = this.retryConfig.merge(ydbTransactional);
 
         if (!retryConfig.isEnabled()) {
             log.debug("YDB retry is disabled for method {}", invocation.getMethod().toGenericString());

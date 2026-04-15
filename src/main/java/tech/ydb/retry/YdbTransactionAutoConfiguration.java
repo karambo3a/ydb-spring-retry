@@ -21,9 +21,8 @@ public class YdbTransactionAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public static YdbTransactionInterceptorPostProcessor ydbTransactionInterceptorPostProcessor(
-            YdbRetryProperties properties) {
-        log.debug("creating YdbTransactionInterceptorPostProcessor bean");
-        return new YdbTransactionInterceptorPostProcessor(properties);
+    public static YdbTransactionInterceptorReplacer ydbBeanDefinitionRegistryPostProcessor() {
+        log.debug("creating YdbBeanDefinitionRegistryPostProcessor bean");
+        return new YdbTransactionInterceptorReplacer();
     }
 }
