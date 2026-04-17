@@ -5,7 +5,7 @@ import org.springframework.lang.Nullable;
 
 public final class YdbRetryPolicyConfig {
     public static final boolean DEFAULT_ENABLED = true;
-    public static final int DEFAULT_MAX_ATTEMPTS = 10;
+    public static final int DEFAULT_MAX_RETRIES = 10;
     public static final int DEFAULT_SLOW_BACKOFF_BASE_MS = 50;
     public static final int DEFAULT_FAST_BACKOFF_BASE_MS = 5;
     public static final int DEFAULT_SLOW_CAP_BACKOFF_MS = 5_000;
@@ -13,7 +13,7 @@ public final class YdbRetryPolicyConfig {
     public static final boolean DEFAULT_IDEMPOTENT = false;
 
     private final boolean enabled;
-    private final int maxAttempts;
+    private final int maxRetries;
     private final int slowBackoffBaseMs;
     private final int fastBackoffBaseMs;
     private final int slowCapBackoffMs;
@@ -25,7 +25,7 @@ public final class YdbRetryPolicyConfig {
     public YdbRetryPolicyConfig() {
         this(
                 DEFAULT_ENABLED,
-                DEFAULT_MAX_ATTEMPTS,
+                DEFAULT_MAX_RETRIES,
                 DEFAULT_SLOW_BACKOFF_BASE_MS,
                 DEFAULT_FAST_BACKOFF_BASE_MS,
                 DEFAULT_SLOW_CAP_BACKOFF_MS,
@@ -34,15 +34,15 @@ public final class YdbRetryPolicyConfig {
         );
     }
 
-    public YdbRetryPolicyConfig(boolean enabled, int maxAttempts, int slowBackoffBaseMs, int fastBackoffBaseMs,
+    public YdbRetryPolicyConfig(boolean enabled, int maxRetries, int slowBackoffBaseMs, int fastBackoffBaseMs,
                                 int slowCapBackoffMs, int fastCapBackoffMs) {
-        this(enabled, maxAttempts, slowBackoffBaseMs, fastBackoffBaseMs, slowCapBackoffMs, fastCapBackoffMs, false);
+        this(enabled, maxRetries, slowBackoffBaseMs, fastBackoffBaseMs, slowCapBackoffMs, fastCapBackoffMs, false);
     }
 
-    public YdbRetryPolicyConfig(boolean enabled, int maxAttempts, int slowBackoffBaseMs, int fastBackoffBaseMs,
+    public YdbRetryPolicyConfig(boolean enabled, int maxRetries, int slowBackoffBaseMs, int fastBackoffBaseMs,
                                 int slowCapBackoffMs, int fastCapBackoffMs, boolean idempotent) {
-        if (maxAttempts < 1) {
-            throw new IllegalArgumentException("maxAttempts must be >= 1");
+        if (maxRetries < 1) {
+            throw new IllegalArgumentException("maxRetries must be >= 1");
         }
         if (slowBackoffBaseMs < 0 || fastBackoffBaseMs < 0 || slowCapBackoffMs < 0 || fastCapBackoffMs < 0) {
             throw new IllegalArgumentException("backoff values must be >= 0");
@@ -52,7 +52,7 @@ public final class YdbRetryPolicyConfig {
         this.fastBackoffBaseMs = fastBackoffBaseMs;
         this.slowCapBackoffMs = slowCapBackoffMs;
         this.fastCapBackoffMs = fastCapBackoffMs;
-        this.maxAttempts = maxAttempts;
+        this.maxRetries = maxRetries;
         this.slowPow = powerForCap(this.slowCapBackoffMs);
         this.fastPow = powerForCap(this.fastCapBackoffMs);
         this.idempotent = idempotent;
@@ -69,8 +69,8 @@ public final class YdbRetryPolicyConfig {
         return enabled;
     }
 
-    public int getMaxAttempts() {
-        return maxAttempts;
+    public int getMaxRetries() {
+        return maxRetries;
     }
 
     public int getSlowBackoffBaseMs() {
@@ -107,7 +107,7 @@ public final class YdbRetryPolicyConfig {
         }
         return new YdbRetryPolicyConfig(
                 enabled,
-                checkCandidate("maxAttempts", transactionPolicy.maxAttempts(), maxAttempts),
+                checkCandidate("maxRetries", transactionPolicy.maxRetries(), maxRetries),
                 checkCandidate("slowBackoffBaseMs", transactionPolicy.slowBackoffBaseMs(), slowBackoffBaseMs),
                 checkCandidate("fastBackoffBaseMs", transactionPolicy.fastBackoffBaseMs(), fastBackoffBaseMs),
                 checkCandidate("slowCapBackoffMs", transactionPolicy.slowCapBackoffMs(), slowCapBackoffMs),

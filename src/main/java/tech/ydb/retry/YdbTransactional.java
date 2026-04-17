@@ -50,7 +50,7 @@ public @interface YdbTransactional {
     @AliasFor(annotation = Transactional.class, attribute = "noRollbackForClassName")
     String[] noRollbackForClassName() default {};
 
-    int maxAttempts() default -1;
+    int maxRetries() default -1;
 
     int slowBackoffBaseMs() default -1;
 
