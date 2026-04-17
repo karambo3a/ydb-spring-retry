@@ -20,32 +20,33 @@ import static tech.ydb.core.StatusCode.UNDETERMINED;
 class YdbTransactionalConfigOverrideTest extends InterceptorTestSupport {
 
     @Test
-    void shouldOverrideMaxAttemptsFromAnnotation() throws Throwable {
+    void shouldOverrideMaxRetriesFromAnnotation() throws Throwable {
         TestableInterceptor interceptor = interceptorWithConfig(true, 1, 0, 0, 0, 0, false);
         interceptor.enqueueOutcome(new ConfigurableStatusException(ABORTED), "ok");
 
         Object result = interceptor.invoke(invocationFor("ydbCustomRetry"));
 
         assertEquals("ok", result);
-        assertEquals(2, interceptor.attemptsCount());
+        assertEquals(1, interceptor.retries());
+        assertEquals(2, interceptor.allInvocations());
     }
 
     @Test
-    void shouldUseConfigMaxAttemptsWhenAnnotationNotSet() throws Throwable {
+    void shouldUseConfigMaxRetriesWhenAnnotationNotSet() throws Throwable {
         TestableInterceptor interceptor = interceptorWithConfig(true, 2, 0, 0, 0, 0, false);
         interceptor.enqueueOutcome(new ConfigurableStatusException(CLIENT_CANCELLED), "ok");
 
         Object result = interceptor.invoke(invocationFor("defaultRetry"));
 
         assertEquals("ok", result);
-        assertEquals(2, interceptor.attemptsCount());
+        assertEquals(1, interceptor.retries());
+        assertEquals(2, interceptor.allInvocations());
     }
 
     @Test
-    void shouldExhaustAnnotatedMaxAttemptsAndPropagate() {
+    void shouldExhaustAnnotatedMaxRetriesAndPropagate() {
         TestableInterceptor interceptor = interceptorWithConfig(true, 1, 0, 0, 0, 0, false);
-        interceptor.enqueueOutcome(
-                new ConfigurableStatusException(SESSION_BUSY), new ConfigurableStatusException(OVERLOADED));
+        interceptor.enqueueOutcome(new ConfigurableStatusException(SESSION_BUSY), new ConfigurableStatusException(OVERLOADED), new ConfigurableStatusException(OVERLOADED));
 
         ConfigurableStatusException exception = assertThrows(
                 ConfigurableStatusException.class,
@@ -53,26 +54,28 @@ class YdbTransactionalConfigOverrideTest extends InterceptorTestSupport {
         );
 
         assertEquals(OVERLOADED, exception.getStatus().getCode());
-        assertEquals(2, interceptor.attemptsCount());
+        assertEquals(2, interceptor.retries());
+        assertEquals(3, interceptor.allInvocations());
     }
 
     @Test
-    void shouldUseAnnotatedMaxAttemptsWhenLowerThanConfig() {
+    void shouldUseAnnotatedMaxRetriesWhenLowerThanConfig() {
         TestableInterceptor interceptor = interceptorWithConfig(true, 1, 0, 0, 0, 0, false);
         interceptor.enqueueOutcome(
-                new ConfigurableStatusException(OVERLOADED), new ConfigurableStatusException(TRANSPORT_UNAVAILABLE));
+                new ConfigurableStatusException(OVERLOADED), new ConfigurableStatusException(TRANSPORT_UNAVAILABLE), new ConfigurableStatusException(OVERLOADED));
 
         ConfigurableStatusException exception = assertThrows(
                 ConfigurableStatusException.class,
                 () -> interceptor.invoke(invocationFor("ydbCustomRetry"))
         );
 
-        assertEquals(TRANSPORT_UNAVAILABLE, exception.getStatus().getCode());
-        assertEquals(2, interceptor.attemptsCount());
+        assertEquals(OVERLOADED, exception.getStatus().getCode());
+        assertEquals(2, interceptor.retries());
+        assertEquals(3, interceptor.allInvocations());
     }
 
     @Test
-    void shouldUseAnnotatedMaxAttemptsWhenHigherThanConfig() throws Throwable {
+    void shouldUseAnnotatedMaxRetriesWhenHigherThanConfig() throws Throwable {
         TestableInterceptor interceptor = interceptorWithConfig(true, 1, 0, 0, 0, 0, false);
         interceptor.enqueueOutcome(
                 new ConfigurableStatusException(BAD_SESSION), new ConfigurableStatusException(SESSION_BUSY),
@@ -82,11 +85,11 @@ class YdbTransactionalConfigOverrideTest extends InterceptorTestSupport {
         Object result = interceptor.invoke(invocationFor("ydbRequiredRetry"));
 
         assertEquals("ok", result);
-        assertEquals(5, interceptor.attemptsCount());
+        assertEquals(5, interceptor.allInvocations());
     }
 
     @Test
-    void shouldRetryDifferentStatusCodesAcrossAttempts() throws Throwable {
+    void shouldRetryDifferentStatusCodesAcrossRetries() throws Throwable {
         TestableInterceptor interceptor = interceptorWithConfig(true, 1, 0, 0, 0, 0, false);
         interceptor.enqueueOutcome(
                 new ConfigurableStatusException(ABORTED),
@@ -96,7 +99,7 @@ class YdbTransactionalConfigOverrideTest extends InterceptorTestSupport {
         Object result = interceptor.invoke(invocationFor("ydbRequiredRetry"));
 
         assertEquals("ok", result);
-        assertEquals(3, interceptor.attemptsCount());
+        assertEquals(3, interceptor.allInvocations());
     }
 
     @Test
@@ -107,7 +110,7 @@ class YdbTransactionalConfigOverrideTest extends InterceptorTestSupport {
         Object result = interceptor.invoke(invocationFor("ydbIdempotentRetry"));
 
         assertEquals("ok", result);
-        assertEquals(2, interceptor.attemptsCount());
+        assertEquals(2, interceptor.allInvocations());
     }
 
     @Test
@@ -121,7 +124,7 @@ class YdbTransactionalConfigOverrideTest extends InterceptorTestSupport {
         );
 
         assertEquals(SESSION_EXPIRED, exception.getStatus().getCode());
-        assertEquals(1, interceptor.attemptsCount());
+        assertEquals(1, interceptor.allInvocations());
     }
 
     @Test
@@ -132,7 +135,7 @@ class YdbTransactionalConfigOverrideTest extends InterceptorTestSupport {
         Object result = interceptor.invoke(invocationFor("ydbIdempotentRetry"));
 
         assertEquals("ok", result);
-        assertEquals(2, interceptor.attemptsCount());
+        assertEquals(2, interceptor.allInvocations());
     }
 
     @Test
@@ -148,7 +151,7 @@ class YdbTransactionalConfigOverrideTest extends InterceptorTestSupport {
         Object result = interceptor.invoke(invocationFor("ydbIdempotentRetry"));
 
         assertEquals("ok", result);
-        assertEquals(4, interceptor.attemptsCount());
+        assertEquals(4, interceptor.allInvocations());
     }
 
     @Test
@@ -165,7 +168,7 @@ class YdbTransactionalConfigOverrideTest extends InterceptorTestSupport {
         );
 
         assertEquals(TIMEOUT, exception.getStatus().getCode());
-        assertEquals(2, interceptor.attemptsCount());
+        assertEquals(2, interceptor.allInvocations());
     }
 
     @Test

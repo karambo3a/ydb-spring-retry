@@ -25,19 +25,22 @@ class TransactionalDefaultRetryTest extends InterceptorTestSupport {
         Object result = interceptor.invoke(invocationFor("regularTx"));
 
         assertEquals("ok", result);
-        assertEquals(2, interceptor.attemptsCount());
+        assertEquals(1, interceptor.retries());
+        assertEquals(2, interceptor.allInvocations());
     }
 
     @Test
-    void shouldExhaustDefaultMaxAttemptsAndPropagateLastException() {
+    void shouldExhaustDefaultMaxRetriesAndPropagateLastException() {
         TestableInterceptor interceptor = interceptorWithConfig(true, 2, 0, 0, 0, 0, false);
-        interceptor.enqueueOutcome(new ConfigurableStatusException(BAD_SESSION), new ConfigurableStatusException(ABORTED));
+        interceptor.enqueueOutcome(new ConfigurableStatusException(BAD_SESSION), new ConfigurableStatusException(ABORTED), new ConfigurableStatusException(ABORTED));
 
         assertThrows(
                 ConfigurableStatusException.class,
                 () -> interceptor.invoke(invocationFor("regularTx"))
         );
-        assertEquals(2, interceptor.attemptsCount());
+
+        assertEquals(2, interceptor.retries());
+        assertEquals(3, interceptor.allInvocations());
     }
 
     @Test
@@ -51,7 +54,8 @@ class TransactionalDefaultRetryTest extends InterceptorTestSupport {
         );
 
         assertEquals(UNAUTHORIZED, exception.getStatus().getCode());
-        assertEquals(1, interceptor.attemptsCount());
+        assertEquals(0, interceptor.retries());
+        assertEquals(1, interceptor.allInvocations());
     }
 
     @Test
@@ -65,7 +69,8 @@ class TransactionalDefaultRetryTest extends InterceptorTestSupport {
         );
 
         assertEquals("not ydb", exception.getMessage());
-        assertEquals(1, interceptor.attemptsCount());
+        assertEquals(0, interceptor.retries());
+        assertEquals(1, interceptor.allInvocations());
     }
 
     @Test
@@ -77,7 +82,7 @@ class TransactionalDefaultRetryTest extends InterceptorTestSupport {
                 OutOfMemoryError.class,
                 () -> interceptor.invoke(invocationFor("regularTx"))
         );
-        assertEquals(1, interceptor.attemptsCount());
+        assertEquals(1, interceptor.allInvocations());
     }
 
     @Test
@@ -89,7 +94,7 @@ class TransactionalDefaultRetryTest extends InterceptorTestSupport {
         Object result = interceptor.invoke(invocationFor("regularTx"));
 
         assertEquals("ok", result);
-        assertEquals(2, interceptor.attemptsCount());
+        assertEquals(2, interceptor.allInvocations());
     }
 
     @Test
@@ -105,7 +110,7 @@ class TransactionalDefaultRetryTest extends InterceptorTestSupport {
         Object result = interceptor.invoke(invocationFor("regularTx"));
 
         assertEquals("ok", result);
-        assertEquals(3, interceptor.attemptsCount());
+        assertEquals(3, interceptor.allInvocations());
         assertEquals(2, delays.size());
         for (Long delay : delays) {
             assertTrue(delay >= 0);
@@ -121,7 +126,7 @@ class TransactionalDefaultRetryTest extends InterceptorTestSupport {
         Object result = interceptor.invoke(invocationFor("regularTx"));
 
         assertEquals("ok", result);
-        assertEquals(2, interceptor.attemptsCount());
+        assertEquals(2, interceptor.allInvocations());
         assertEquals(1, delays.size());
         assertEquals(0, delays.get(0));
     }
@@ -157,7 +162,7 @@ class TransactionalDefaultRetryTest extends InterceptorTestSupport {
         Object result = interceptor.invoke(invocationFor("regularTx"));
 
         assertEquals("ok", result);
-        assertEquals(2, interceptor.attemptsCount());
+        assertEquals(2, interceptor.allInvocations());
     }
 
     @Test
@@ -171,7 +176,7 @@ class TransactionalDefaultRetryTest extends InterceptorTestSupport {
         );
 
         assertEquals(TIMEOUT, exception.getStatus().getCode());
-        assertEquals(1, interceptor.attemptsCount());
+        assertEquals(1, interceptor.allInvocations());
     }
 
     @Test
@@ -185,6 +190,6 @@ class TransactionalDefaultRetryTest extends InterceptorTestSupport {
         );
 
         assertEquals(BAD_SESSION, exception.getStatus().getCode());
-        assertEquals(1, interceptor.attemptsCount());
+        assertEquals(1, interceptor.allInvocations());
     }
 }

@@ -22,7 +22,7 @@ class TransactionPropagationRetryTest extends InterceptorTestSupport {
                 IllegalStateException.class,
                 () -> interceptor.invoke(invocationFor("ydbRequiredRetry"))
         );
-        assertEquals(1, interceptor.attemptsCount());
+        assertEquals(1, interceptor.allInvocations());
     }
 
     @Test
@@ -35,7 +35,7 @@ class TransactionPropagationRetryTest extends InterceptorTestSupport {
         Object result = interceptor.invoke(invocationFor("ydbRequiresNewRetry"));
 
         assertEquals("ok", result);
-        assertEquals(2, interceptor.attemptsCount());
+        assertEquals(2, interceptor.allInvocations());
     }
 
     @Test
@@ -48,7 +48,7 @@ class TransactionPropagationRetryTest extends InterceptorTestSupport {
         Object result = interceptor.invoke(invocationFor("ydbNestedRetry"));
 
         assertEquals("ok", result);
-        assertEquals(2, interceptor.attemptsCount());
+        assertEquals(2, interceptor.allInvocations());
     }
 
     @Test
@@ -61,6 +61,6 @@ class TransactionPropagationRetryTest extends InterceptorTestSupport {
         Object result = interceptor.invoke(invocationFor("ydbNotSupportedRetry"));
 
         assertEquals("ok", result);
-        assertEquals(2, interceptor.attemptsCount());
+        assertEquals(2, interceptor.allInvocations());
     }
 }

@@ -66,7 +66,7 @@ public class YdbTransactionInterceptor extends TransactionInterceptor {
     private Object invokeWithinTransactionWithRetryContext(final MethodInvocation invocation,
                                                            @Nullable Class<?> targetClass,
                                                            YdbRetryPolicyConfig retryConfig) throws Throwable {
-        for (int attempt = 1; attempt <= retryConfig.getMaxAttempts(); attempt++) {
+        for (int attempt = 1; attempt <= retryConfig.getMaxRetries() + 1; attempt++) {
             try {
                 return this.invokeWithinTransaction(invocation.getMethod(), targetClass, createCallback(invocation));
             } catch (Throwable ex) {
@@ -77,7 +77,7 @@ public class YdbTransactionInterceptor extends TransactionInterceptor {
                 if (!YdbRetryPolicy.shouldRetry(statusCode, retryConfig.isIdempotent())) {
                     throw ex;
                 }
-                if (attempt == retryConfig.getMaxAttempts()) {
+                if (attempt == retryConfig.getMaxRetries() + 1) {
                     throw ex;
                 }
                 long delay = YdbDelayCalculator.calculateDelay(statusCode, retryConfig, attempt - 1);
