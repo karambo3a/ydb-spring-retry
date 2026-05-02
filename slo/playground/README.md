@@ -1,76 +1,110 @@
-# SLO Playground
+# Playground
 
-Local Docker Compose stack for running SLO workloads against a real YDB cluster with full metrics visibility in Grafana and automated chaos injection.
+Docker Compose environments for running SLO tests with chaos injection. Each scenario deploys a full YDB cluster, two workload applications (with and without retry), Prometheus, Grafana, and a chaos container.
 
-## Services
+## Shared Infrastructure
 
-| Service | URL | Description |
+All scenarios use the same architecture:
+
+| Component | Count | Description |
 |---|---|---|
-| Grafana | http://localhost:3000 (admin/admin) | Metrics dashboards |
-| Prometheus | http://localhost:9090 | Metrics storage (OTLP receiver enabled) |
-| YDB monitoring | http://localhost:8765 | YDB cluster UI (static node) |
-| YDB gRPC | grpc://localhost:2136 | YDB endpoint (database node 1) |
-| Chaos | — | Automated fault injection container |
+| YDB static node | 1 | Storage node + discovery (`static-0`) |
+| YDB database nodes | 5 | Tenant nodes (`database-1` .. `database-5`) |
+| SLO app with retry | 1 | Port 8081, retry enabled |
+| SLO app without retry | 1 | Port 8082, retry disabled |
+| Prometheus | 1 | Scrapes metrics every 5s |
+| Grafana | 1 | Visualization on port 3000 |
+| Chaos container | 1 | Docker container with docker.sock access |
 
-The cluster consists of 1 static node + 5 database (dynamic) nodes running YDB 24.4.4.12.
+All services run on a single Docker network `slo-network`. The YDB cluster uses erasure `none` (no storage-level replication), which amplifies the impact of failures.
 
-## Usage
+---
 
-### Standard chaos
+## Scenario 1: `chaos/` — Baseline Chaos
+
+A mild scenario modeling typical operational failures: graceful shutdown, restart, and crash of a single node at a time.
+
+### Start
 
 ```bash
 cd slo/playground/chaos
-docker compose up -d
+docker compose up --build -d
 ```
 
-### Aggressive chaos
+### Chaos Phases (`chaos.sh`)
+
+The chaos script starts 60 seconds after launch (once YDB and apps are ready).
+
+| Phase | Iterations | Action | Pause | Generated Errors |
+|---|---|---|---|---|
+| Stop/Start | 5 | `docker stop` → `docker start` a random node | 60s | `UNAVAILABLE`, `TRANSPORT_UNAVAILABLE` |
+| Restart | 3 | `docker restart -t 0` a random node (instant) | 60s | `TRANSPORT_UNAVAILABLE` |
+| Final Kill | 1 | `docker kill -s SIGKILL` a random node | — | `UNAVAILABLE`, `BAD_SESSION` |
+
+**Total chaos duration:** ~8 minutes after the 60s delay.
+
+### What to observe
+
+- On `docker stop/start` — gradual error increase that retry successfully compensates for
+- On `docker restart -t 0` — sharp error spike for `no-retry`, while `with-retry` is barely affected
+- On `SIGKILL` — most pronounced error spikes for `no-retry`
+
+---
+
+## Scenario 2: `chaos-aggressive/` — Aggressive Chaos
+
+An intensive scenario with multi-node failures, pause/unpause, and rapid kill/start cycles. YDB nodes run with constrained resources (768 MB RAM, 1 CPU), amplifying the effect.
+
+### Start
 
 ```bash
 cd slo/playground/chaos-aggressive
-docker compose up -d
+docker compose up --build -d
 ```
 
-### Stop
+### Chaos Phases (`chaos.sh`)
+
+| Phase | Iterations | Action | Pause | Generated Errors |
+|---|---|---|---|---|
+| 1. Pause/Unpause | 4 | `docker pause` 20s → `docker unpause` one node | 15s | `TIMEOUT` (in-flight ops hang) |
+| 2. Multi-node Kill | 3 | `SIGKILL` **two** nodes simultaneously → `docker start` both | 25s | `OVERLOADED`, `BAD_SESSION` |
+| 3. Instant Restart | 3 | `docker restart -t 0` one node | 20s | `TRANSPORT_UNAVAILABLE` |
+| 4. Dual Pause | 1 | `docker pause` **two** nodes for 30s → unpause | 15s | Extended `TIMEOUT`, `OVERLOADED` |
+| 5. Rapid Kill/Start | 5 | `SIGKILL` → `docker start` with no gap | 8s | `SESSION_BUSY`, `BAD_SESSION` (thrashing) |
+| 6. Final Triple Kill | 1 | `SIGKILL` **three** nodes simultaneously | — | Mass `UNAVAILABLE` |
+
+**Total chaos duration:** ~7 minutes after the 60s delay.
+
+### What to observe
+
+- **Phase 1 (pause):** `docker pause` freezes processes — in-flight operations hang and time out. Retry gives a chance to wait for unpause
+- **Phase 2 (multi-kill):** Simultaneous loss of 2 out of 5 nodes causes cascading effects — surviving nodes become overloaded. Retry helps weather the recovery window
+- **Phase 4 (dual pause):** Losing 2/5 nodes for 30 seconds is the most stressful event for the session pool
+- **Phase 5 (rapid):** Fast kill/start cycles cause session pool thrashing — `BAD_SESSION` and `SESSION_BUSY`. Retry with backoff helps avoid dropping requests
+- **Phase 6 (triple kill):** Losing 3/5 nodes is an extreme scenario that demonstrates the limits of retry
+
+---
+
+## Configuration Files
+
+### `configs/ydb.yaml`
+
+YDB cluster configuration with erasure `none`, a single storage pool (SSD), and 5 database nodes connected to the tenant `/Root/testdb`.
+
+### `configs/prometheus/prometheus.yaml`
+
+Scrape configuration: both apps are scraped every 5 seconds at `:9464/metrics`.
+
+### `configs/grafana/provisioning/`
+
+- **datasource.yaml** — Prometheus datasource
+- **dashboard.yaml** — Auto-loads JSON dashboards from the directory
+- **slo.json** — Pre-built dashboard
+
+## Cleanup
 
 ```bash
-docker compose down
+docker compose down -v
 ```
 
-## Chaos Configurations
-
-### Standard (`chaos/`)
-
-Routine node failure simulation:
-
-1. **5 iterations** of `docker stop` / `docker start` on a random node (10s graceful stop, 60s intervals)
-2. **3 iterations** of `docker restart` on a random node (instant, no grace period)
-3. **1 final** `SIGKILL` on a random node (node stays dead)
-
-### Aggressive (`chaos-aggressive/`)
-
-Intensive fault injection across 6 phases, each targeting specific failure modes:
-
-| Phase | Action | Expected errors |
-|---|---|---|
-| 1. Pause/unpause (4x) | `docker pause` for 20s | `TIMEOUT` — connections hang, operations expire |
-| 2. Multi-node kill (3x) | SIGKILL 2 nodes simultaneously | `OVERLOADED`, `BAD_SESSION` on survivors |
-| 3. Instant restart (3x) | `docker restart -t 0` | `TRANSPORT_UNAVAILABLE` |
-| 4. Dual pause (1x) | Pause 2 nodes for 30s | Extended `TIMEOUT`, `OVERLOADED` |
-| 5. Rapid kill/start (5x) | SIGKILL + immediate start | `SESSION_BUSY`, `BAD_SESSION` (pool thrashing) |
-| 6. Triple SIGKILL (1x) | Kill 3 nodes simultaneously | Cluster partially down |
-
-Resource limits per node: **1 CPU**, **768M RAM** (aggressive config only).
-
-## Configuration
-
-| Path | Description |
-|---|---|
-| `configs/ydb.yaml` | YDB cluster configuration |
-| `configs/prometheus/prometheus.yaml` | Prometheus scrape config |
-| `configs/grafana/provisioning/` | Auto-provisioned datasources and dashboards |
-
-YDB runs in **non-persistent** mode — data is lost on container restart.
-
-## Next Steps
-
-After the playground is running, use the [SLO workload tool](../src/README.md) to create a test table and drive load against YDB.
+Removes containers, networks, and volumes (Prometheus data, Grafana DB).

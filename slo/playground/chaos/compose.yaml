@@ -269,6 +269,52 @@ services:
       tenant-init:
         condition: service_completed_successfully
 
+  app-with-retry:
+    build:
+      context: ../../..
+      dockerfile: slo/Dockerfile
+    container_name: ydb-app-with-retry
+    platform: linux/amd64
+    networks:
+      - slo-network
+    environment:
+      SERVER_PORT: "8081"
+      SPRING_DATASOURCE_URL: jdbc:ydb:grpc://static-0:2135/Root/testdb
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: tech.ydb.jdbc.YdbDriver
+      YDB_TRANSACTION_RETRY_ENABLED: "true"
+      YDB_TRANSACTION_RETRY_MAX_RETRIES: "10"
+      YDB_TRANSACTION_RETRY_IDEMPOTENT: "true"
+      REF: with-retry
+      SLO_READ_RPS: "100"
+      SLO_WRITE_RPS: "100"
+      SLO_INITIAL_DATA: "1000"
+      SLO_TIME: "600"
+    depends_on:
+      database-1:
+        condition: service_healthy
+
+  app-no-retry:
+    build:
+      context: ../../..
+      dockerfile: slo/Dockerfile
+    container_name: ydb-app-no-retry
+    platform: linux/amd64
+    networks:
+      - slo-network
+    environment:
+      SERVER_PORT: "8082"
+      SPRING_DATASOURCE_URL: jdbc:ydb:grpc://static-0:2135/Root/testdb
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: tech.ydb.jdbc.YdbDriver
+      YDB_TRANSACTION_RETRY_ENABLED: "false"
+      REF: no-retry
+      SLO_READ_RPS: "100"
+      SLO_WRITE_RPS: "100"
+      SLO_INITIAL_DATA: "1000"
+      SLO_TIME: "600"
+    depends_on:
+      database-1:
+        condition: service_healthy
+
   chaos:
     image: docker:latest
     restart: on-failure

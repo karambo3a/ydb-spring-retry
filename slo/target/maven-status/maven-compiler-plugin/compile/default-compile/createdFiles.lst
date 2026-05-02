@@ -1,7 +1,0 @@
-tech/ydb/slo/WorkloadRunner.class
-tech/ydb/slo/Metrics$AtomicLongTracker.class
-tech/ydb/slo/SloWorkloadApp.class
-tech/ydb/slo/SloConfig.class
-tech/ydb/slo/Metrics.class
-tech/ydb/slo/SloConfig$ParsedArgs.class
-tech/ydb/slo/SloService.class

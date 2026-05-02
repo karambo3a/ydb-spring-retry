@@ -1,88 +1,107 @@
 # SLO Testing for YDB Spring Retry
 
-**SLO (Service Level Objectives)** tests verify SDK reliability under adverse conditions: node failures, tablet restarts, and network partitions — the kind of events that happen routinely in a large distributed database cluster.
+SLO (Service Level Objectives) testing validates that the **ydb-spring-retry** library reduces visible application errors during YDB cluster node failures — restarts, shutdowns, network issues, and kill signals.
 
-## Structure
+## How It Works
 
-```
-slo/
-├── playground/   Local Docker Compose stack (YDB cluster + Prometheus + Grafana + chaos)
-│   ├── chaos/             Standard chaos configuration
-│   └── chaos-aggressive/  Aggressive chaos configuration
-└── src/          SLO workload tool (Java / Spring Boot)
-```
+Two identical Spring Boot applications run the same workload (read/write) against the same YDB cluster:
 
-## Quick Start (local)
+| Instance | Port | Retry | Description |
+|---|---|---|---|
+| `app-with-retry` | 8081 | **Enabled** (max 10 retries, idempotent=true) | Uses `@YdbTransactional` with retry |
+| `app-no-retry` | 8082 | **Disabled** | Uses `@YdbTransactional` with retry=false |
 
-### Prerequisites
+A chaos script periodically stops, restarts, and kills random YDB nodes. The Grafana dashboard shows an error rate comparison, clearly demonstrating that retry significantly reduces visible application errors.
 
-- Docker with Docker Compose v2
-- Java 21
-- Maven 3.9+
+## Test Scenarios
 
-### 1. Build the ydb-spring-retry library
+Two chaos levels are available:
 
-```bash
-mvn install -DskipTests
-```
-
-### 2. Start the playground
-
-There are two chaos configurations:
-
-| Configuration | Directory | Description |
+| Scenario | Directory | Description |
 |---|---|---|
-| **Standard** | `playground/chaos/` | Stop/start + restart + SIGKILL on random nodes |
-| **Aggressive** | `playground/chaos-aggressive/` | 6 phases: pause, multi-node kill, instant restart, dual pause, rapid kill/start, triple SIGKILL. Also limits resources per node (1 CPU, 768M RAM). |
+| **chaos** | `playground/chaos/` | Baseline: stop/start, restart, SIGKILL of individual nodes |
+| **chaos-aggressive** | `playground/chaos-aggressive/` | Aggressive: pause/unpause, multi-node kill, rapid kill/start, triple kill + resource constraints |
+
+See [`playground/README.md`](playground/README.md) for details.
+
+## Quick Start
+
+### 1. Start (baseline chaos)
 
 ```bash
-# Standard chaos
 cd slo/playground/chaos
-docker compose up -d
+docker compose up --build -d
 ```
 
-or
+Wait ~60 seconds for YDB to initialize and apps to seed data.
+
+### 2. Start (aggressive chaos)
 
 ```bash
-# Aggressive chaos
 cd slo/playground/chaos-aggressive
-docker compose up -d
+docker compose up --build -d
 ```
 
-Services (same for both):
+### 3. Open Grafana
 
-| Service | URL |
-|---|---|
-| Grafana | http://localhost:3000 (admin/admin) |
-| Prometheus | http://localhost:9090 |
-| YDB monitoring | http://localhost:8765 |
-| YDB gRPC | grpc://localhost:2136 |
+Navigate to **http://localhost:3000** (login: `admin` / `admin`).
 
-### 3. Run the workload
+The **"YDB Spring Retry SLO - Retry vs No-Retry Comparison"** dashboard is pre-loaded and auto-refreshes every 5 seconds.
+
+### 4. Stop
 
 ```bash
-cd slo
-mvn package -DskipTests
-
-JAR=target/ydb-slo-workload-1.0.0-SNAPSHOT-exec.jar
-
-# Create the test table
-java -jar $JAR create grpc://localhost:2136 /Root/testdb
-
-# Run read/write workload for 10 minutes
-java -jar $JAR run grpc://localhost:2136 /Root/testdb \
-  --otlp-endpoint http://localhost:9090/api/v1/otlp/v1/metrics \
-  --read-rps 1000 --write-rps 100 --time 600
-
-# Drop the table when done
-java -jar $JAR cleanup grpc://localhost:2136 /Root/testdb
+docker compose down
 ```
 
-### 4. View metrics in Grafana
+To also remove data volumes:
 
-Open http://localhost:3000 — the SLO dashboard is auto-provisioned.
+```bash
+docker compose down -v
+```
 
-## Detailed Documentation
+## Services
 
-- [Workload CLI reference](src/README.md) — all commands and arguments
-- [Playground setup](playground/README.md) — Docker Compose services, chaos configurations, and config
+| Service | URL | Description |
+|---|---|---|
+| Grafana | http://localhost:3000 | Metrics dashboard (admin/admin) |
+| Prometheus | http://localhost:9090 | Metrics storage |
+| YDB Monitoring | http://localhost:8765 | YDB cluster UI |
+| YDB gRPC | grpc://localhost:2136 | YDB endpoint |
+| App with retry | http://localhost:8081/actuator/prometheus | Metrics endpoint |
+| App without retry | http://localhost:8082/actuator/prometheus | Metrics endpoint |
+
+## Metrics
+
+The SLO application exports Prometheus metrics via OpenTelemetry SDK:
+
+| Metric | Type | Labels | Description |
+|---|---|---|---|
+| `slo_operations_total` | Counter | ref, operation_type, status, error_type | Total operations |
+| `slo_operation_duration_seconds` | Histogram | ref, operation_type, status, error_type | Operation latency |
+
+### Labels
+
+| Label | Values | Description |
+|---|---|---|
+| `ref` | `with-retry`, `no-retry` | Instance identifier |
+| `operation_type` | `read`, `write` | Operation type |
+| `status` | `success`, `failure` | Operation result |
+| `error_type` | `none`, `UNAVAILABLE`, `TRANSPORT_UNAVAILABLE`, `OVERLOADED`, `BAD_SESSION`, ... | YDB status code or exception class name |
+
+## Configuration
+
+Environment variables for the app containers:
+
+| Variable | Default | Description |
+|---|---|---|
+| `SERVER_PORT` | 8080 | HTTP port |
+| `SPRING_DATASOURCE_URL` | - | YDB JDBC URL |
+| `YDB_TRANSACTION_RETRY_ENABLED` | true | Enable/disable retry |
+| `YDB_TRANSACTION_RETRY_MAX_RETRIES` | 10 | Max retry attempts |
+| `YDB_TRANSACTION_RETRY_IDEMPOTENT` | true | Treat operations as idempotent |
+| `REF` | unknown | Label for metrics (with-retry / no-retry) |
+| `SLO_READ_RPS` | 100 | Target read RPS |
+| `SLO_WRITE_RPS` | 100 | Target write RPS |
+| `SLO_INITIAL_DATA` | 1000 | Initial rows to seed |
+| `SLO_TIME` | 600 | Workload duration in seconds |
