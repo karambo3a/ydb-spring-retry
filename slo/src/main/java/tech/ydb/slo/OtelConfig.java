@@ -9,10 +9,12 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class OtelConfig {
 
+    private static final int PROMETHEUS_PORT = 9464;
+
     @Bean(destroyMethod = "close")
     public OpenTelemetrySdk openTelemetry() {
         PrometheusHttpServer prometheusHttpServer = PrometheusHttpServer.builder()
-                .setPort(9464)
+                .setPort(PROMETHEUS_PORT)
                 .build();
 
         SdkMeterProvider meterProvider = SdkMeterProvider.builder()

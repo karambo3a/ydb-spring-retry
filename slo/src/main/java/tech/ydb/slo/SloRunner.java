@@ -6,6 +6,8 @@ import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.metrics.DoubleHistogram;
 import io.opentelemetry.api.metrics.LongCounter;
 import io.opentelemetry.api.metrics.Meter;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,7 +16,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import tech.ydb.core.Status;
 import tech.ydb.jdbc.exception.YdbStatusable;
+import tech.ydb.retry.YdbRetryProperties;
 
+import java.time.Instant;
 import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.util.concurrent.ExecutorService;
@@ -29,14 +33,32 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class SloRunner implements CommandLineRunner {
 
     private static final Logger log = LoggerFactory.getLogger(SloRunner.class);
+    private static final String OPERATIONS_METRIC_NAME = "slo.operations";
+    private static final String DURATION_METRIC_NAME = "slo.operation.duration.seconds";
+    private static final String DURATION_METRIC_UNIT = "s";
+    private static final List<Double> DURATION_BUCKETS = List.of(
+            0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5,
+            1.0, 2.5, 5.0, 10.0, 30.0
+    );
+
+    private static final String TABLE_NAME = "slo_test_table";
+    private static final String READ_OPERATION = "read";
+    private static final String WRITE_OPERATION = "write";
+    private static final String SUCCESS_STATUS = "success";
+    private static final String FAILURE_STATUS = "failure";
+    private static final String NO_ERROR_TYPE = "none";
 
     private final JdbcTemplate jdbcTemplate;
     private final SloService sloService;
     private final SloConfig config;
+    private final YdbRetryProperties retryProperties;
+    private final SloResultWriter resultWriter;
     private final LongCounter operationsCounter;
     private final DoubleHistogram durationHistogram;
+    private final SloStats sloStats = new SloStats();
 
-    private final AtomicInteger maxId = new AtomicInteger(0);
+    private final AtomicInteger nextId = new AtomicInteger(0);
+    private final List<Integer> readableIds = Collections.synchronizedList(new ArrayList<>());
 
     private static final AttributeKey<String> REF_KEY = AttributeKey.stringKey("ref");
     private static final AttributeKey<String> OP_TYPE_KEY = AttributeKey.stringKey("operation_type");
@@ -44,41 +66,43 @@ public class SloRunner implements CommandLineRunner {
     private static final AttributeKey<String> ERROR_TYPE_KEY = AttributeKey.stringKey("error_type");
 
     public SloRunner(JdbcTemplate jdbcTemplate, SloService sloService, SloConfig config,
+                     YdbRetryProperties retryProperties, SloResultWriter resultWriter,
                      OpenTelemetry openTelemetry) {
         this.jdbcTemplate = jdbcTemplate;
         this.sloService = sloService;
         this.config = config;
+        this.retryProperties = retryProperties;
+        this.resultWriter = resultWriter;
 
         Meter meter = openTelemetry.getMeter("slo");
-        this.operationsCounter = meter.counterBuilder("slo.operations")
+        this.operationsCounter = meter.counterBuilder(OPERATIONS_METRIC_NAME)
                 .setDescription("Total number of SLO operations")
                 .build();
-        this.durationHistogram = meter.histogramBuilder("slo.operation.duration.seconds")
+        this.durationHistogram = meter.histogramBuilder(DURATION_METRIC_NAME)
                 .setDescription("SLO operation latency")
-                .setUnit("s")
-                .setExplicitBucketBoundariesAdvice(
-                        List.of(
-                                0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5,
-                                1.0, 2.5, 5.0, 10.0, 30.0
-                        )
-                )
+                .setUnit(DURATION_METRIC_UNIT)
+                .setExplicitBucketBoundariesAdvice(DURATION_BUCKETS)
                 .build();
     }
 
     @Override
     public void run(String... args) {
-        log.info("SLO runner starting with ref={}", config.getRef());
+        Instant startedAt = Instant.now();
+        String runId = resultWriter.resolveRunId(config, startedAt);
         createTable();
         seedData();
-        runWorkload();
-        log.info("SLO workload completed, app stays alive for metrics scraping");
+        runWorkload(runId);
+        Instant finishedAt = Instant.now();
+        writeRunSummaryFile(runId, startedAt, finishedAt);
+        waitForPrometheusScrapes(runId);
+        log.info("SLO workload completed and final metrics were exposed for scraping: runId={}", runId);
     }
 
     private void createTable() {
         for (int attempt = 0; attempt < 10; attempt++) {
             try {
                 jdbcTemplate.execute(
-                        "CREATE TABLE slo_test_table (" +
+                        "CREATE TABLE " + TABLE_NAME + " (" +
                                 "guid Text, " +
                                 "id Int32, " +
                                 "payload_str Text, " +
@@ -87,7 +111,7 @@ public class SloRunner implements CommandLineRunner {
                                 "PRIMARY KEY (guid, id)" +
                                 ")"
                 );
-                log.info("Created table slo_test_table");
+                log.info("Created table {}", TABLE_NAME);
                 return;
             } catch (Exception e) {
                 String msg = e.getMessage();
@@ -95,7 +119,7 @@ public class SloRunner implements CommandLineRunner {
                     log.info("Table slo_test_table already exists");
                     return;
                 }
-                log.warn("Failed to create table (attempt {}/10): {}", attempt + 1, msg);
+                log.warn("Failed to create table (attempt {}/{}): {}", attempt + 1, 10, msg);
                 if (attempt == 9) {
                     log.warn("Max attempts reached, proceeding anyway");
                     return;
@@ -118,19 +142,20 @@ public class SloRunner implements CommandLineRunner {
                 String guid = guidFromInt(i);
                 String payload = randomString();
                 sloService.upsert(guid, i, payload, Math.random(), LocalDateTime.now());
+                registerReadableId(i);
                 success++;
             } catch (Exception e) {
                 log.warn("Failed to seed row {}: {}", i, e.getMessage());
             }
         }
-        maxId.set(config.getInitialDataCount());
+        nextId.set(config.getInitialDataCount());
         log.info("Seeded {}/{} rows", success, config.getInitialDataCount());
     }
 
-    private void runWorkload() {
+    private void runWorkload(String runId) {
         String ref = config.getRef();
-        log.info("Starting workload: ref={}, readRps={}, writeRps={}, time={}s",
-                ref, config.getReadRps(), config.getWriteRps(), config.getRunTimeSeconds());
+        log.info("Starting workload: runId={}, ref={}, readRps={}, writeRps={}, time={}s",
+                runId, ref, config.getReadRps(), config.getWriteRps(), config.getRunTimeSeconds());
 
         ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2);
         ExecutorService workers = Executors.newFixedThreadPool(20);
@@ -151,17 +176,24 @@ public class SloRunner implements CommandLineRunner {
             }
         }, 0, intervalMs, TimeUnit.MILLISECONDS);
 
-        scheduler.schedule(() -> {
-            readFuture.cancel(false);
-            writeFuture.cancel(false);
-            scheduler.shutdown();
-            workers.shutdown();
-            log.info("Workload finished for ref={}", ref);
-        }, config.getRunTimeSeconds(), TimeUnit.SECONDS);
+        try {
+            Thread.sleep(TimeUnit.SECONDS.toMillis(config.getRunTimeSeconds()));
+        } catch (InterruptedException interruptedException) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("SLO workload interrupted", interruptedException);
+        }
+
+        readFuture.cancel(false);
+        writeFuture.cancel(false);
+        scheduler.shutdown();
+        workers.shutdown();
+        awaitTermination("scheduler", scheduler, 30L, TimeUnit.SECONDS);
+        awaitTermination("workers", workers, 30L, TimeUnit.SECONDS);
+        log.info("Workload finished: runId={}, ref={}", runId, ref);
     }
 
     private void doWrite(String ref) {
-        int id = maxId.incrementAndGet();
+        int id = nextId.incrementAndGet();
         String guid = guidFromInt(id);
         String payload = randomString();
         double payloadDouble = Math.random();
@@ -170,34 +202,55 @@ public class SloRunner implements CommandLineRunner {
         long start = System.nanoTime();
         try {
             sloService.upsert2(guid, id, payload, payloadDouble, ts);
-            recordLatency(ref, "write", "success", "none", System.nanoTime() - start);
-            incrementCounter(ref, "write", "success", "none");
+            registerReadableId(id);
+            long durationNanos = System.nanoTime() - start;
+            sloStats.recordSuccess(WRITE_OPERATION, durationNanos);
+            recordLatency(ref, WRITE_OPERATION, SUCCESS_STATUS, NO_ERROR_TYPE, durationNanos);
+            incrementCounter(ref, WRITE_OPERATION, SUCCESS_STATUS, NO_ERROR_TYPE);
         } catch (Exception e) {
             String errorType = extractErrorType(e);
-            recordLatency(ref, "write", "failure", errorType, System.nanoTime() - start);
-            incrementCounter(ref, "write", "failure", errorType);
+            long durationNanos = System.nanoTime() - start;
+            sloStats.recordFailure(WRITE_OPERATION, errorType, durationNanos);
+            recordLatency(ref, WRITE_OPERATION, FAILURE_STATUS, errorType, durationNanos);
+            incrementCounter(ref, WRITE_OPERATION, FAILURE_STATUS, errorType);
             log.debug("Write failed: [{}] {}", errorType, e.getMessage());
         }
     }
 
     private void doRead(String ref) {
-        int currentMax = maxId.get();
-        if (currentMax < 1) {
+        Integer id = pickReadableId();
+        if (id == null) {
             return;
         }
-        int id = ThreadLocalRandom.current().nextInt(1, currentMax + 1);
         String guid = guidFromInt(id);
 
         long start = System.nanoTime();
         try {
             sloService.select(guid, id);
-            recordLatency(ref, "read", "success", "none", System.nanoTime() - start);
-            incrementCounter(ref, "read", "success", "none");
+            long durationNanos = System.nanoTime() - start;
+            sloStats.recordSuccess(READ_OPERATION, durationNanos);
+            recordLatency(ref, READ_OPERATION, SUCCESS_STATUS, NO_ERROR_TYPE, durationNanos);
+            incrementCounter(ref, READ_OPERATION, SUCCESS_STATUS, NO_ERROR_TYPE);
         } catch (Exception e) {
             String errorType = extractErrorType(e);
-            recordLatency(ref, "read", "failure", errorType, System.nanoTime() - start);
-            incrementCounter(ref, "read", "failure", errorType);
+            long durationNanos = System.nanoTime() - start;
+            sloStats.recordFailure(READ_OPERATION, errorType, durationNanos);
+            recordLatency(ref, READ_OPERATION, FAILURE_STATUS, errorType, durationNanos);
+            incrementCounter(ref, READ_OPERATION, FAILURE_STATUS, errorType);
             log.debug("Read failed: [{}] {}", errorType, e.getMessage());
+        }
+    }
+
+    private void registerReadableId(int id) {
+        readableIds.add(id);
+    }
+
+    private Integer pickReadableId() {
+        synchronized (readableIds) {
+            if (readableIds.isEmpty()) {
+                return null;
+            }
+            return readableIds.get(ThreadLocalRandom.current().nextInt(readableIds.size()));
         }
     }
 
@@ -212,7 +265,7 @@ public class SloRunner implements CommandLineRunner {
     }
 
     private void recordLatency(String ref, String operationType, String status, String errorType,
-                               long durationNanos) {
+                                long durationNanos) {
         Attributes attrs = Attributes.builder()
                 .put(REF_KEY, ref)
                 .put(OP_TYPE_KEY, operationType)
@@ -266,4 +319,38 @@ public class SloRunner implements CommandLineRunner {
         }
         return sb.toString();
     }
+
+    private void writeRunSummaryFile(String runId, Instant startedAt, Instant finishedAt) {
+        resultWriter.writeSummary(
+                config,
+                retryProperties,
+                sloStats.calculate(runId, startedAt, finishedAt, sloStats)
+        );
+    }
+
+    private void waitForPrometheusScrapes(String runId) {
+        log.info(
+                "Waiting {}s before shutdown to allow final Prometheus scrapes: runId={}",
+                10,
+                runId
+        );
+        try {
+            Thread.sleep(TimeUnit.SECONDS.toMillis(10));
+        } catch (InterruptedException interruptedException) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Interrupted while waiting for final Prometheus scrapes", interruptedException);
+        }
+    }
+
+    private static void awaitTermination(String name, ExecutorService executorService, long timeout, TimeUnit unit) {
+        try {
+            if (!executorService.awaitTermination(timeout, unit)) {
+                throw new IllegalStateException(name + " did not terminate in time");
+            }
+        } catch (InterruptedException interruptedException) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(name + " termination interrupted", interruptedException);
+        }
+    }
+
 }

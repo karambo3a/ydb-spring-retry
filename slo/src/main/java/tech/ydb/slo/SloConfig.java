@@ -10,6 +10,8 @@ public class SloConfig {
     private int initialDataCount = 1000;
     private int runTimeSeconds = 600;
     private String ref = "unknown";
+    private String runId = "";
+    private String resultsDir = "results";
 
     public int getReadRps() {
         return readRps;
@@ -49,5 +51,21 @@ public class SloConfig {
 
     public void setRef(String ref) {
         this.ref = ref;
+    }
+
+    public String getRunId() {
+        return runId;
+    }
+
+    public void setRunId(String runId) {
+        this.runId = runId;
+    }
+
+    public String getResultsDir() {
+        return resultsDir;
+    }
+
+    public void setResultsDir(String resultsDir) {
+        this.resultsDir = resultsDir;
     }
 }

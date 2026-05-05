@@ -8,8 +8,8 @@ Two identical Spring Boot applications run the same workload (read/write) agains
 
 | Instance | Port | Retry | Description |
 |---|---|---|---|
-| `app-with-retry` | 8081 | **Enabled** (max 10 retries, idempotent=true) | Uses `@YdbTransactional` with retry |
-| `app-no-retry` | 8082 | **Disabled** | Uses `@YdbTransactional` with retry=false |
+| `app-with-retry` | 8081 | **Enabled** (max 10 retries, idempotent=true) | Uses the same workload with global retry enabled |
+| `app-no-retry` | 8082 | **Disabled** | Uses the same workload with `YDB_TRANSACTION_RETRY_ENABLED=false` |
 
 A chaos script periodically stops, restarts, and kills random YDB nodes. The Grafana dashboard shows an error rate comparison, clearly demonstrating that retry significantly reduces visible application errors.
 
@@ -68,8 +68,10 @@ docker compose down -v
 | Prometheus | http://localhost:9090 | Metrics storage |
 | YDB Monitoring | http://localhost:8765 | YDB cluster UI |
 | YDB gRPC | grpc://localhost:2136 | YDB endpoint |
-| App with retry | http://localhost:8081/actuator/prometheus | Metrics endpoint |
-| App without retry | http://localhost:8082/actuator/prometheus | Metrics endpoint |
+| App with retry metrics | internal `http://app-with-retry:9464/metrics` | Prometheus scrape target |
+| App without retry metrics | internal `http://app-no-retry:9464/metrics` | Prometheus scrape target |
+
+The app containers do not publish their internal Spring Boot or metrics ports to the host. Prometheus scrapes them over the Docker network at `:9464/metrics`.
 
 ## Metrics
 
@@ -100,8 +102,21 @@ Environment variables for the app containers:
 | `YDB_TRANSACTION_RETRY_ENABLED` | true | Enable/disable retry |
 | `YDB_TRANSACTION_RETRY_MAX_RETRIES` | 10 | Max retry attempts |
 | `YDB_TRANSACTION_RETRY_IDEMPOTENT` | true | Treat operations as idempotent |
+| `SLO_RUN_ID` | auto | Shared run identifier used for result folder name |
+| `SLO_RESULTS_DIR` | `/app/results` in Docker | Root directory for saved run results |
 | `REF` | unknown | Label for metrics (with-retry / no-retry) |
 | `SLO_READ_RPS` | 100 | Target read RPS |
 | `SLO_WRITE_RPS` | 100 | Target write RPS |
 | `SLO_INITIAL_DATA` | 1000 | Initial rows to seed |
 | `SLO_TIME` | 600 | Workload duration in seconds |
+
+## Saved Results
+
+```text
+results/
+  <runId>/
+    retry
+    no-retry
+```
+
+The `retry` file contains the final summary for `app-with-retry`, and `no-retry` contains the final summary for `app-no-retry`.

@@ -79,6 +79,8 @@ All parameters are set via environment variables (or Spring Boot command-line ar
 | `YDB_TRANSACTION_RETRY_ENABLED` | `true` | Enable/disable retry |
 | `YDB_TRANSACTION_RETRY_MAX_RETRIES` | `10` | Max retry attempts |
 | `YDB_TRANSACTION_RETRY_IDEMPOTENT` | `true` | Treat operations as idempotent |
+| `SLO_RUN_ID` | auto | Shared run identifier used for the result folder name |
+| `SLO_RESULTS_DIR` | `results` | Root directory where per-run result folders are stored |
 
 ### Workload
 
@@ -90,11 +92,22 @@ All parameters are set via environment variables (or Spring Boot command-line ar
 | `SLO_TIME` | `600` | Total run duration (seconds) |
 | `REF` | `unknown` | Instance label for metrics (`with-retry` / `no-retry`) |
 
+## Saved Results
+
+```text
+<results-dir>/
+  <runId>/
+    retry
+    no-retry
+```
+
+The `retry` file is written by the `with-retry` instance, and `no-retry` is written by the `no-retry` instance.
+
 ## Collected Metrics (exposed via OpenTelemetry on :9464)
 
 | Metric | Type | Labels | Description |
 |---|---|---|---|
-| `slo_operations` | Counter | ref, operation_type, status, error_type | Total number of operations |
+| `slo_operations_total` | Counter | ref, operation_type, status, error_type | Total number of operations |
 | `slo_operation_duration_seconds` | Histogram | ref, operation_type, status, error_type | Operation latency (seconds) |
 
 ### Labels

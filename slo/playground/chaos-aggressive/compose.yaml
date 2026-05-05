@@ -293,10 +293,14 @@ services:
       YDB_TRANSACTION_RETRY_MAX_RETRIES: "10"
       YDB_TRANSACTION_RETRY_IDEMPOTENT: "true"
       REF: with-retry
+      SLO_RUN_ID: ${SLO_RUN_ID:-}
+      SLO_RESULTS_DIR: /app/results
       SLO_READ_RPS: "100"
       SLO_WRITE_RPS: "100"
       SLO_INITIAL_DATA: "1000"
       SLO_TIME: "600"
+    volumes:
+      - ../results:/app/results
     depends_on:
       database-1:
         condition: service_healthy
@@ -315,10 +319,14 @@ services:
       SPRING_DATASOURCE_DRIVER_CLASS_NAME: tech.ydb.jdbc.YdbDriver
       YDB_TRANSACTION_RETRY_ENABLED: "false"
       REF: no-retry
+      SLO_RUN_ID: ${SLO_RUN_ID:-}
+      SLO_RESULTS_DIR: /app/results
       SLO_READ_RPS: "100"
       SLO_WRITE_RPS: "100"
       SLO_INITIAL_DATA: "1000"
       SLO_TIME: "600"
+    volumes:
+      - ../results:/app/results
     depends_on:
       database-1:
         condition: service_healthy

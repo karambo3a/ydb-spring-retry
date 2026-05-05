@@ -39,8 +39,8 @@ sleep 60
 
 echo "Start AGGRESSIVE CHAOS on YDB cluster!"
 
-# Phase 1: Pause/unpause (generates TIMEOUT — connections hang, operations expire)
-echo "=== Phase 1: docker pause/unpause (TIMEOUT) ==="
+# Phase 1: Pause/unpause
+echo "=== Phase 1: docker pause/unpause ==="
 for i in $(seq 1 4)
 do
   get_random_container
@@ -52,8 +52,8 @@ do
   sleep 15
 done
 
-# Phase 2: Multi-node simultaneous kill (generates OVERLOADED on survivors + BAD_SESSION)
-echo "=== Phase 2: multi-node kill (OVERLOADED + BAD_SESSION) ==="
+# Phase 2: Multi-node simultaneous kill
+echo "=== Phase 2: multi-node kill ==="
 for i in $(seq 1 3)
 do
   get_two_random_containers
@@ -68,8 +68,8 @@ do
   sleep 25
 done
 
-# Phase 3: Single-node instant restart (generates TRANSPORT_UNAVAILABLE + UNAVAILABLE)
-echo "=== Phase 3: instant restart (TRANSPORT_UNAVAILABLE) ==="
+# Phase 3: Single-node instant restart
+echo "=== Phase 3: instant restart ==="
 for i in $(seq 1 3)
 do
   get_random_container
@@ -78,8 +78,8 @@ do
   sleep 20
 done
 
-# Phase 4: Pause 2 nodes simultaneously (extended TIMEOUT + OVERLOADED)
-echo "=== Phase 4: dual pause 30s (extended TIMEOUT + OVERLOADED) ==="
+# Phase 4: Pause 2 nodes simultaneously
+echo "=== Phase 4: dual pause 30s ==="
 get_two_random_containers
 echo "[$(date)]: PAUSE ${nodeForChaos} and ${nodeForChaos2} for 30s"
 docker pause ${nodeForChaos} &
@@ -93,7 +93,7 @@ wait
 sleep 15
 
 # Phase 5: Rapid kill/start cycle (session pool thrashing)
-echo "=== Phase 5: rapid kill/start (SESSION_BUSY + BAD_SESSION) ==="
+echo "=== Phase 5: rapid kill/start ==="
 for i in $(seq 1 5)
 do
   get_random_container
