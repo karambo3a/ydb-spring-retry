@@ -302,7 +302,7 @@ services:
     volumes:
       - ../results:/app/results
     depends_on:
-      database-1:
+      static-0:
         condition: service_healthy
 
   app-no-retry:
@@ -328,7 +328,7 @@ services:
     volumes:
       - ../results:/app/results
     depends_on:
-      database-1:
+      static-0:
         condition: service_healthy
 
   chaos:

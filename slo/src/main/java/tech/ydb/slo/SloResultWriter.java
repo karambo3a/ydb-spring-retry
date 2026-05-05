@@ -50,7 +50,7 @@ public class SloResultWriter {
                     StandardOpenOption.WRITE
             ); FileLock ignored = channel.lock()) {
                 String existingRunId = readCurrentRunId(channel);
-                if (!existingRunId.isBlank() && !isCompletedRun(resultsRoot.resolve(existingRunId))) {
+                if (!existingRunId.isBlank() && isReusableRun(resultsRoot.resolve(existingRunId))) {
                     return existingRunId;
                 }
 
@@ -163,9 +163,9 @@ public class SloResultWriter {
         return ref.replaceAll(FILE_NAME_SANITIZE_REGEX, FILE_NAME_SANITIZE_REPLACEMENT);
     }
 
-    private static boolean isCompletedRun(Path runDirectory) {
-        return Files.exists(runDirectory.resolve(RETRY_RESULT_FILE_NAME))
-                && Files.exists(runDirectory.resolve(NO_RETRY_RESULT_FILE_NAME));
+    private static boolean isReusableRun(Path runDirectory) {
+        return !Files.exists(runDirectory.resolve(RETRY_RESULT_FILE_NAME))
+                && !Files.exists(runDirectory.resolve(NO_RETRY_RESULT_FILE_NAME));
     }
 
     private static String readCurrentRunId(FileChannel channel) throws IOException {
