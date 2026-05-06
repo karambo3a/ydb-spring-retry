@@ -135,7 +135,7 @@ class TransactionalDefaultRetryTest extends InterceptorTestSupport {
     void shouldHandleInterruptedSleep() {
         ConfigurableStatusException originalException = new ConfigurableStatusException(CLIENT_INTERNAL_ERROR);
         TestableInterceptor interceptor = interceptorWithSleeper(
-                true, 3, 0, 0, 0, 0, false, delay -> {
+                true, 3, 0, 0, 0, 0, true, delay -> {
                     throw new InterruptedException("sleep interrupted");
                 });
         interceptor.enqueueOutcome(originalException, "ok");
@@ -155,14 +155,42 @@ class TransactionalDefaultRetryTest extends InterceptorTestSupport {
     }
 
     @Test
-    void shouldRetryTimeoutForTransactionalMethodWhenDefaultConfigIdempotent() throws Throwable {
+    void shouldNotRetryClientInternalErrorForTransactionalMethodWhenDefaultConfigNotIdempotent() {
+        TestableInterceptor interceptor = interceptorWithConfig(true, 3, 0, 0, 0, 0, false);
+        interceptor.enqueueOutcome(new ConfigurableStatusException(CLIENT_INTERNAL_ERROR), "ok");
+
+        ConfigurableStatusException exception = assertThrows(
+                ConfigurableStatusException.class,
+                () -> interceptor.invoke(invocationFor("regularTx"))
+        );
+
+        assertEquals(CLIENT_INTERNAL_ERROR, exception.getStatus().getCode());
+        assertEquals(1, interceptor.allInvocations());
+    }
+
+    @Test
+    void shouldRetryClientInternalErrorForTransactionalMethodWhenDefaultConfigIdempotent() throws Throwable {
         TestableInterceptor interceptor = interceptorWithConfig(true, 3, 0, 0, 0, 0, true);
-        interceptor.enqueueOutcome(new ConfigurableStatusException(TIMEOUT), "ok");
+        interceptor.enqueueOutcome(new ConfigurableStatusException(CLIENT_INTERNAL_ERROR), "ok");
 
         Object result = interceptor.invoke(invocationFor("regularTx"));
 
         assertEquals("ok", result);
         assertEquals(2, interceptor.allInvocations());
+    }
+
+    @Test
+    void shouldNotRetryTimeoutForTransactionalMethodWhenDefaultConfigIdempotent() {
+        TestableInterceptor interceptor = interceptorWithConfig(true, 3, 0, 0, 0, 0, true);
+        interceptor.enqueueOutcome(new ConfigurableStatusException(TIMEOUT));
+
+        ConfigurableStatusException exception = assertThrows(
+                ConfigurableStatusException.class,
+                () -> interceptor.invoke(invocationFor("regularTx"))
+        );
+
+        assertEquals(TIMEOUT, exception.getStatus().getCode());
+        assertEquals(1, interceptor.allInvocations());
     }
 
     @Test

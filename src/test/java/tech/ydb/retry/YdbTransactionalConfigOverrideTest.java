@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static tech.ydb.core.StatusCode.ABORTED;
 import static tech.ydb.core.StatusCode.BAD_SESSION;
 import static tech.ydb.core.StatusCode.CLIENT_CANCELLED;
+import static tech.ydb.core.StatusCode.CLIENT_RESOURCE_EXHAUSTED;
 import static tech.ydb.core.StatusCode.OVERLOADED;
 import static tech.ydb.core.StatusCode.SESSION_BUSY;
 import static tech.ydb.core.StatusCode.SESSION_EXPIRED;
@@ -34,7 +35,7 @@ class YdbTransactionalConfigOverrideTest extends InterceptorTestSupport {
     @Test
     void shouldUseConfigMaxRetriesWhenAnnotationNotSet() throws Throwable {
         TestableInterceptor interceptor = interceptorWithConfig(true, 2, 0, 0, 0, 0, false);
-        interceptor.enqueueOutcome(new ConfigurableStatusException(CLIENT_CANCELLED), "ok");
+        interceptor.enqueueOutcome(new ConfigurableStatusException(BAD_SESSION), "ok");
 
         Object result = interceptor.invoke(invocationFor("defaultRetry"));
 
@@ -62,7 +63,7 @@ class YdbTransactionalConfigOverrideTest extends InterceptorTestSupport {
     void shouldUseAnnotatedMaxRetriesWhenLowerThanConfig() {
         TestableInterceptor interceptor = interceptorWithConfig(true, 1, 0, 0, 0, 0, false);
         interceptor.enqueueOutcome(
-                new ConfigurableStatusException(OVERLOADED), new ConfigurableStatusException(TRANSPORT_UNAVAILABLE), new ConfigurableStatusException(OVERLOADED));
+                new ConfigurableStatusException(OVERLOADED), new ConfigurableStatusException(BAD_SESSION), new ConfigurableStatusException(OVERLOADED));
 
         ConfigurableStatusException exception = assertThrows(
                 ConfigurableStatusException.class,
@@ -79,7 +80,7 @@ class YdbTransactionalConfigOverrideTest extends InterceptorTestSupport {
         TestableInterceptor interceptor = interceptorWithConfig(true, 1, 0, 0, 0, 0, false);
         interceptor.enqueueOutcome(
                 new ConfigurableStatusException(BAD_SESSION), new ConfigurableStatusException(SESSION_BUSY),
-                new ConfigurableStatusException(ABORTED), new ConfigurableStatusException(CLIENT_CANCELLED),
+                new ConfigurableStatusException(ABORTED), new ConfigurableStatusException(OVERLOADED),
                 "ok");
 
         Object result = interceptor.invoke(invocationFor("ydbRequiredRetry"));
@@ -103,14 +104,89 @@ class YdbTransactionalConfigOverrideTest extends InterceptorTestSupport {
     }
 
     @Test
-    void shouldRetryTimeoutWhenIdempotent() throws Throwable {
+    void shouldNotRetryClientCancelledWhenNotIdempotent() {
         TestableInterceptor interceptor = interceptorWithConfig(true, 5, 0, 0, 0, 0, true);
-        interceptor.enqueueOutcome(new ConfigurableStatusException(TIMEOUT), "ok");
+        interceptor.enqueueOutcome(new ConfigurableStatusException(CLIENT_CANCELLED), "ok");
+
+        ConfigurableStatusException exception = assertThrows(
+                ConfigurableStatusException.class,
+                () -> interceptor.invoke(invocationFor("ydbNonIdempotentRetry"))
+        );
+
+        assertEquals(CLIENT_CANCELLED, exception.getStatus().getCode());
+        assertEquals(1, interceptor.allInvocations());
+    }
+
+    @Test
+    void shouldRetryClientCancelledWhenIdempotent() throws Throwable {
+        TestableInterceptor interceptor = interceptorWithConfig(true, 5, 0, 0, 0, 0, false);
+        interceptor.enqueueOutcome(new ConfigurableStatusException(CLIENT_CANCELLED), "ok");
 
         Object result = interceptor.invoke(invocationFor("ydbIdempotentRetry"));
 
         assertEquals("ok", result);
         assertEquals(2, interceptor.allInvocations());
+    }
+
+    @Test
+    void shouldNotRetryTransportUnavailableWhenNotIdempotent() {
+        TestableInterceptor interceptor = interceptorWithConfig(true, 5, 0, 0, 0, 0, true);
+        interceptor.enqueueOutcome(new ConfigurableStatusException(TRANSPORT_UNAVAILABLE), "ok");
+
+        ConfigurableStatusException exception = assertThrows(
+                ConfigurableStatusException.class,
+                () -> interceptor.invoke(invocationFor("ydbNonIdempotentRetry"))
+        );
+
+        assertEquals(TRANSPORT_UNAVAILABLE, exception.getStatus().getCode());
+        assertEquals(1, interceptor.allInvocations());
+    }
+
+    @Test
+    void shouldRetryTransportUnavailableWhenIdempotent() throws Throwable {
+        TestableInterceptor interceptor = interceptorWithConfig(true, 5, 0, 0, 0, 0, false);
+        interceptor.enqueueOutcome(new ConfigurableStatusException(TRANSPORT_UNAVAILABLE), "ok");
+
+        Object result = interceptor.invoke(invocationFor("ydbIdempotentRetry"));
+
+        assertEquals("ok", result);
+        assertEquals(2, interceptor.allInvocations());
+    }
+
+    @Test
+    void shouldRetryClientResourceExhaustedWhenNotIdempotent() throws Throwable {
+        TestableInterceptor interceptor = interceptorWithConfig(true, 5, 0, 0, 0, 0, false);
+        interceptor.enqueueOutcome(new ConfigurableStatusException(CLIENT_RESOURCE_EXHAUSTED), "ok");
+
+        Object result = interceptor.invoke(invocationFor("ydbNonIdempotentRetry"));
+
+        assertEquals("ok", result);
+        assertEquals(2, interceptor.allInvocations());
+    }
+
+    @Test
+    void shouldRetryClientResourceExhaustedWhenIdempotent() throws Throwable {
+        TestableInterceptor interceptor = interceptorWithConfig(true, 5, 0, 0, 0, 0, false);
+        interceptor.enqueueOutcome(new ConfigurableStatusException(CLIENT_RESOURCE_EXHAUSTED), "ok");
+
+        Object result = interceptor.invoke(invocationFor("ydbIdempotentRetry"));
+
+        assertEquals("ok", result);
+        assertEquals(2, interceptor.allInvocations());
+    }
+
+    @Test
+    void shouldNotRetryTimeoutWhenIdempotent() {
+        TestableInterceptor interceptor = interceptorWithConfig(true, 5, 0, 0, 0, 0, true);
+        interceptor.enqueueOutcome(new ConfigurableStatusException(TIMEOUT));
+
+        ConfigurableStatusException exception = assertThrows(
+                ConfigurableStatusException.class,
+                () -> interceptor.invoke(invocationFor("ydbIdempotentRetry"))
+        );
+
+        assertEquals(TIMEOUT, exception.getStatus().getCode());
+        assertEquals(1, interceptor.allInvocations());
     }
 
     @Test
@@ -142,9 +218,9 @@ class YdbTransactionalConfigOverrideTest extends InterceptorTestSupport {
     void shouldRetryMixedStatusCodesWhenIdempotent() throws Throwable {
         TestableInterceptor interceptor = interceptorWithConfig(true, 5, 0, 0, 0, 0, true);
         interceptor.enqueueOutcome(
-                new ConfigurableStatusException(TIMEOUT),
                 new ConfigurableStatusException(ABORTED),
                 new ConfigurableStatusException(UNDETERMINED),
+                new ConfigurableStatusException(CLIENT_CANCELLED),
                 "ok"
         );
 
@@ -152,6 +228,20 @@ class YdbTransactionalConfigOverrideTest extends InterceptorTestSupport {
 
         assertEquals("ok", result);
         assertEquals(4, interceptor.allInvocations());
+    }
+
+    @Test
+    void shouldNotRetrySessionExpiredWhenIdempotent() {
+        TestableInterceptor interceptor = interceptorWithConfig(true, 5, 0, 0, 0, 0, true);
+        interceptor.enqueueOutcome(new ConfigurableStatusException(SESSION_EXPIRED));
+
+        ConfigurableStatusException exception = assertThrows(
+                ConfigurableStatusException.class,
+                () -> interceptor.invoke(invocationFor("ydbIdempotentRetry"))
+        );
+
+        assertEquals(SESSION_EXPIRED, exception.getStatus().getCode());
+        assertEquals(1, interceptor.allInvocations());
     }
 
     @Test
@@ -172,27 +262,33 @@ class YdbTransactionalConfigOverrideTest extends InterceptorTestSupport {
     }
 
     @Test
-    void shouldUseZeroDelayForTimeoutWhenIdempotent() throws Throwable {
+    void shouldNotReachDelayCalculatorForTimeoutWhenIdempotent() {
         List<Long> delays = new ArrayList<>();
         TestableInterceptor interceptor = interceptorWithSleeper(true, 5, 100, 50, 1000, 500, true, delays::add);
-        interceptor.enqueueOutcome(new ConfigurableStatusException(TIMEOUT), "ok");
+        interceptor.enqueueOutcome(new ConfigurableStatusException(TIMEOUT));
 
-        interceptor.invoke(invocationFor("ydbIdempotentRetry"));
+        assertThrows(
+                ConfigurableStatusException.class,
+                () -> interceptor.invoke(invocationFor("ydbIdempotentRetry"))
+        );
 
-        assertEquals(1, delays.size());
-        assertEquals(0, delays.get(0));
+        assertEquals(1, interceptor.allInvocations());
+        assertEquals(0, delays.size());
     }
 
     @Test
-    void shouldUseZeroDelayForSessionExpiredWhenIdempotent() throws Throwable {
+    void shouldNotReachDelayCalculatorForSessionExpiredWhenIdempotent() {
         List<Long> delays = new ArrayList<>();
         TestableInterceptor interceptor = interceptorWithSleeper(true, 5, 100, 50, 1000, 500, true, delays::add);
-        interceptor.enqueueOutcome(new ConfigurableStatusException(SESSION_EXPIRED), "ok");
+        interceptor.enqueueOutcome(new ConfigurableStatusException(SESSION_EXPIRED));
 
-        interceptor.invoke(invocationFor("ydbIdempotentRetry"));
+        assertThrows(
+                ConfigurableStatusException.class,
+                () -> interceptor.invoke(invocationFor("ydbIdempotentRetry"))
+        );
 
-        assertEquals(1, delays.size());
-        assertEquals(0, delays.getFirst());
+        assertEquals(1, interceptor.allInvocations());
+        assertEquals(0, delays.size());
     }
 
     @Test

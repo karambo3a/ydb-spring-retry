@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static tech.ydb.core.StatusCode.ABORTED;
 import static tech.ydb.core.StatusCode.BAD_SESSION;
-import static tech.ydb.core.StatusCode.CLIENT_CANCELLED;
 
 class TransactionPropagationRetryTest extends InterceptorTestSupport {
 
@@ -57,7 +56,7 @@ class TransactionPropagationRetryTest extends InterceptorTestSupport {
         TransactionSynchronizationManager.setActualTransactionActive(true);
 
         TestableInterceptor interceptor = interceptorWithConfig(true, 1, 0, 0, 0, 0, false);
-        interceptor.enqueueOutcome(new ConfigurableStatusException(CLIENT_CANCELLED), "ok");
+        interceptor.enqueueOutcome(new ConfigurableStatusException(BAD_SESSION), "ok");
 
         Object result = interceptor.invoke(invocationFor("ydbNotSupportedRetry"));
 

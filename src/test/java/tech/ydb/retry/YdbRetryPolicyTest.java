@@ -36,10 +36,7 @@ class YdbRetryPolicyTest {
                 BAD_SESSION,
                 SESSION_BUSY,
                 ABORTED,
-                CLIENT_CANCELLED,
-                CLIENT_INTERNAL_ERROR,
                 UNAVAILABLE,
-                TRANSPORT_UNAVAILABLE,
                 OVERLOADED,
                 CLIENT_RESOURCE_EXHAUSTED
         );
@@ -52,7 +49,12 @@ class YdbRetryPolicyTest {
 
     @Test
     void shouldNotRetryIdempotentOnlyStatusesWhenNotIdempotent() {
-        List<StatusCode> idempotentOnly = List.of(TIMEOUT, SESSION_EXPIRED, UNDETERMINED);
+        List<StatusCode> idempotentOnly = List.of(
+                CLIENT_CANCELLED,
+                CLIENT_INTERNAL_ERROR,
+                TRANSPORT_UNAVAILABLE,
+                UNDETERMINED
+        );
 
         for (StatusCode code : idempotentOnly) {
             assertFalse(YdbRetryPolicy.shouldRetry(code, false), "Should not retry " + code + " when not idempotent");
@@ -61,7 +63,12 @@ class YdbRetryPolicyTest {
 
     @Test
     void shouldRetryIdempotentOnlyStatusesWhenIdempotent() {
-        List<StatusCode> idempotentOnly = List.of(TIMEOUT, SESSION_EXPIRED, UNDETERMINED);
+        List<StatusCode> idempotentOnly = List.of(
+                CLIENT_CANCELLED,
+                CLIENT_INTERNAL_ERROR,
+                TRANSPORT_UNAVAILABLE,
+                UNDETERMINED
+        );
 
         for (StatusCode code : idempotentOnly) {
             assertTrue(YdbRetryPolicy.shouldRetry(code, true), "Should retry " + code + " when idempotent");
@@ -80,7 +87,9 @@ class YdbRetryPolicyTest {
                 NOT_FOUND,
                 UNSUPPORTED,
                 CANCELLED,
-                EXTERNAL_ERROR
+                EXTERNAL_ERROR,
+                TIMEOUT,
+                SESSION_EXPIRED
         );
 
         for (StatusCode code : nonRetryable) {

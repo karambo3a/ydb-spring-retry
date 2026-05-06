@@ -10,7 +10,7 @@ public class YdbDelayCalculator {
         }
 
         return switch (statusCode) {
-            case BAD_SESSION, SESSION_BUSY, TIMEOUT, SESSION_EXPIRED -> 0;
+            case BAD_SESSION, SESSION_BUSY -> 0;
             case UNDETERMINED, ABORTED, CLIENT_CANCELLED, CLIENT_INTERNAL_ERROR ->
                     delayWithFullJitter(retryConfig.getFastBackoffBaseMs(), retryConfig.getFastCapBackoffMs(),
                             retryConfig.getFastPow(), attempt, retryConfig);

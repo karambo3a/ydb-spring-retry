@@ -15,7 +15,6 @@ import tech.ydb.retry.integration.app.UserService;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest(classes = UserApplication.class)
 @ActiveProfiles({"enabled", "ydb"})
@@ -34,8 +33,7 @@ class ExecuteQueryRetryIntegrationTest extends YdbDockerTest {
     @ParameterizedTest(name = "ExecuteQuery")
     @EnumSource(value = StatusCode.class, names = {
             "ABORTED", "UNAVAILABLE", "OVERLOADED", "BAD_SESSION",
-            "SESSION_BUSY", "CLIENT_CANCELLED", "CLIENT_INTERNAL_ERROR",
-            "TRANSPORT_UNAVAILABLE", "CLIENT_RESOURCE_EXHAUSTED"
+            "SESSION_BUSY"
     })
     void shouldRecoverFromRetryableError(StatusCode code) {
         DeterministicErrorChannel.configure().onError("executeQuery", 1, code);

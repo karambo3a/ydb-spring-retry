@@ -61,9 +61,14 @@ public class DeterministicErrorChannel implements Consumer<ManagedChannelBuilder
     }
 
     public DeterministicErrorChannel onError(String method, int callNumber, StatusCode code) {
-        String pascalName = Character.toUpperCase(method.charAt(0)) + method.substring(1);
-        rules.add(new ErrorRule(pascalName, callNumber, code));
+        addRule(method, callNumber, code);
         return this;
+    }
+
+    private static void addRule(String method, int callNumber, StatusCode code) {
+        String pascalName = Character.toUpperCase(method.charAt(0)) + method.substring(1);
+        toProto(code);
+        rules.add(new ErrorRule(pascalName, callNumber, code));
     }
 
     @Override
@@ -96,7 +101,14 @@ public class DeterministicErrorChannel implements Consumer<ManagedChannelBuilder
     }
 
     private static StatusCodesProtos.StatusIds.StatusCode toProto(StatusCode code) {
-        return StatusCodesProtos.StatusIds.StatusCode.valueOf(code.name());
+        try {
+            return StatusCodesProtos.StatusIds.StatusCode.valueOf(code.name());
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException(
+                    "Status " + code + " is not a YDB protobuf response status. ",
+                    ex
+            );
+        }
     }
 
     private class ErrorCall<ReqT, RespT> extends ClientCall<ReqT, RespT> {
@@ -144,8 +156,7 @@ public class DeterministicErrorChannel implements Consumer<ManagedChannelBuilder
                 String method = parts[0].trim();
                 int callNumber = Integer.parseInt(parts[1].trim());
                 StatusCode code = StatusCode.valueOf(parts[2].trim());
-                String pascalName = Character.toUpperCase(method.charAt(0)) + method.substring(1);
-                rules.add(new ErrorRule(pascalName, callNumber, code));
+                addRule(method, callNumber, code);
             }
         }
     }

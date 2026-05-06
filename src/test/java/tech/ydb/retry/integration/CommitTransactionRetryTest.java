@@ -31,8 +31,7 @@ class CommitTransactionRetryTest extends YdbDockerTest {
     @ParameterizedTest(name = "CommitTransaction")
     @EnumSource(value = StatusCode.class, names = {
             "ABORTED", "UNAVAILABLE", "OVERLOADED", "BAD_SESSION",
-            "SESSION_BUSY", "CLIENT_CANCELLED", "CLIENT_INTERNAL_ERROR",
-            "TRANSPORT_UNAVAILABLE", "CLIENT_RESOURCE_EXHAUSTED"
+            "SESSION_BUSY"
     })
     void shouldRecoverFromRetryableCommitError(StatusCode code) {
         DeterministicErrorChannel.configure().onError("commitTransaction", 1, code);
