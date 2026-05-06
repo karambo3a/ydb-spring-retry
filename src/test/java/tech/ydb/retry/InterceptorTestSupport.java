@@ -24,14 +24,14 @@ abstract class InterceptorTestSupport {
     }
 
     static TestableInterceptor interceptorWithConfig(boolean enabled, int maxRetries, int slowBase, int fastBase,
-                                                      int slowCap, int fastCap, boolean isIdempotent) {
+                                                     int slowCap, int fastCap, boolean isIdempotent) {
         return interceptorWithSleeper(enabled, maxRetries, slowBase, fastBase, slowCap, fastCap, isIdempotent, delay -> {
         });
     }
 
     static TestableInterceptor interceptorWithSleeper(boolean enabled, int maxRetries, int slowBase, int fastBase,
-                                                       int slowCap, int fastCap, boolean isIdempotent,
-                                                       BackoffSleeper sleeper) {
+                                                      int slowCap, int fastCap, boolean isIdempotent,
+                                                      BackoffSleeper sleeper) {
         TestableInterceptor interceptor = new TestableInterceptor(
                 new YdbRetryPolicyConfig(enabled, maxRetries, slowBase, fastBase, slowCap, fastCap, isIdempotent),
                 sleeper

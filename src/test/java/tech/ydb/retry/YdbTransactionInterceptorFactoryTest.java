@@ -1,7 +1,7 @@
 package tech.ydb.retry;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 import org.springframework.transaction.annotation.AnnotationTransactionAttributeSource;
 import org.springframework.transaction.interceptor.TransactionAttributeSource;
 
@@ -11,7 +11,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.mock;
 
 class YdbTransactionInterceptorFactoryTest {
 
@@ -65,24 +64,23 @@ class YdbTransactionInterceptorFactoryTest {
     }
 
     @Test
-    void getObjectShouldSetTransactionManagerWhenProvided() {
-        PlatformTransactionManager txManager = mock(PlatformTransactionManager.class);
+    void getObjectShouldLeaveTransactionManagerUnsetForDeferredResolution() {
         YdbTransactionInterceptorFactory factory = createYdbTransactionInterceptorFactory();
-        factory.setTransactionManager(txManager);
 
-        YdbTransactionInterceptor interceptor = factory.getObject();
-
-        assertNotNull(interceptor);
-        assertSame(txManager, interceptor.getTransactionManager());
-    }
-
-    @Test
-    void getObjectShouldNotSetTransactionManagerWhenNull() {
-        YdbTransactionInterceptorFactory factory = createYdbTransactionInterceptorFactory();
         YdbTransactionInterceptor interceptor = factory.getObject();
 
         assertNotNull(interceptor);
         assertNull(interceptor.getTransactionManager());
+    }
+
+    @Test
+    void getObjectShouldCreateInterceptorWhenBeanFactoryIsProvided() {
+        YdbTransactionInterceptorFactory factory = createYdbTransactionInterceptorFactory();
+        factory.setBeanFactory(new DefaultListableBeanFactory());
+
+        YdbTransactionInterceptor interceptor = factory.getObject();
+
+        assertNotNull(interceptor);
     }
 
     @Test

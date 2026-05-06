@@ -1,17 +1,21 @@
 package tech.ydb.retry;
 
+import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.BeanFactory;
+import org.springframework.beans.factory.BeanFactoryAware;
 import org.springframework.beans.factory.FactoryBean;
 import org.springframework.lang.Nullable;
-import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionManager;
+import org.springframework.transaction.annotation.TransactionManagementConfigurer;
 import org.springframework.transaction.interceptor.TransactionAttributeSource;
 
-public class YdbTransactionInterceptorFactory implements FactoryBean<YdbTransactionInterceptor> {
+public class YdbTransactionInterceptorFactory implements FactoryBean<YdbTransactionInterceptor>, BeanFactoryAware {
 
     private YdbRetryProperties retryProperties;
     private TransactionAttributeSource transactionAttributeSource;
 
     @Nullable
-    private PlatformTransactionManager transactionManager;
+    private BeanFactory beanFactory;
 
     public void setRetryProperties(YdbRetryProperties retryProperties) {
         this.retryProperties = retryProperties;
@@ -21,8 +25,9 @@ public class YdbTransactionInterceptorFactory implements FactoryBean<YdbTransact
         this.transactionAttributeSource = transactionAttributeSource;
     }
 
-    public void setTransactionManager(@Nullable PlatformTransactionManager transactionManager) {
-        this.transactionManager = transactionManager;
+    @Override
+    public void setBeanFactory(BeanFactory beanFactory) throws BeansException {
+        this.beanFactory = beanFactory;
     }
 
     @Override
@@ -32,10 +37,32 @@ public class YdbTransactionInterceptorFactory implements FactoryBean<YdbTransact
                 Thread::sleep
         );
         interceptor.setTransactionAttributeSource(transactionAttributeSource);
-        if (transactionManager != null) {
-            interceptor.setTransactionManager(transactionManager);
+        if (beanFactory != null) {
+            interceptor.setBeanFactory(beanFactory);
         }
+
+        TransactionManager defaultTransactionManager = resolveTransactionManager();
+        if (defaultTransactionManager != null) {
+            interceptor.setTransactionManager(defaultTransactionManager);
+        }
+
         return interceptor;
+    }
+
+    @Nullable
+    private TransactionManager resolveTransactionManager() {
+        if (beanFactory == null) {
+            return null;
+        }
+
+        TransactionManagementConfigurer configurer = beanFactory
+                .getBeanProvider(TransactionManagementConfigurer.class)
+                .getIfAvailable();
+        if (configurer == null) {
+            return null;
+        }
+
+        return configurer.annotationDrivenTransactionManager();
     }
 
     @Override

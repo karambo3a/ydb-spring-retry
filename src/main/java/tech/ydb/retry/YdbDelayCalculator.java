@@ -12,14 +12,14 @@ public class YdbDelayCalculator {
         return switch (statusCode) {
             case BAD_SESSION, SESSION_BUSY, TIMEOUT, SESSION_EXPIRED -> 0;
             case UNDETERMINED, ABORTED, CLIENT_CANCELLED, CLIENT_INTERNAL_ERROR ->
-                delayWithFullJitter(retryConfig.getFastBackoffBaseMs(), retryConfig.getFastCapBackoffMs(),
-                    retryConfig.getFastPow(), attempt, retryConfig);
+                    delayWithFullJitter(retryConfig.getFastBackoffBaseMs(), retryConfig.getFastCapBackoffMs(),
+                            retryConfig.getFastPow(), attempt, retryConfig);
             case UNAVAILABLE, TRANSPORT_UNAVAILABLE ->
-                delayWithEqualJitter(retryConfig.getFastBackoffBaseMs(), retryConfig.getFastCapBackoffMs(),
-                    retryConfig.getFastPow(), attempt, retryConfig);
+                    delayWithEqualJitter(retryConfig.getFastBackoffBaseMs(), retryConfig.getFastCapBackoffMs(),
+                            retryConfig.getFastPow(), attempt, retryConfig);
             case OVERLOADED, CLIENT_RESOURCE_EXHAUSTED ->
-                delayWithEqualJitter(retryConfig.getSlowBackoffBaseMs(), retryConfig.getSlowCapBackoffMs(),
-                    retryConfig.getSlowPow(), attempt, retryConfig);
+                    delayWithEqualJitter(retryConfig.getSlowBackoffBaseMs(), retryConfig.getSlowCapBackoffMs(),
+                            retryConfig.getSlowPow(), attempt, retryConfig);
             default -> 0;
         };
     }
