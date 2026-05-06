@@ -20,6 +20,9 @@ import java.lang.annotation.Target;
 @Transactional
 public @interface YdbTransactional {
 
+    @AliasFor(annotation = Transactional.class, attribute = "value")
+    String value() default "";
+
     @AliasFor(annotation = Transactional.class, attribute = "transactionManager")
     String transactionManager() default "";
 
@@ -35,6 +38,9 @@ public @interface YdbTransactional {
     @AliasFor(annotation = Transactional.class, attribute = "timeout")
     int timeout() default TransactionDefinition.TIMEOUT_DEFAULT;
 
+    @AliasFor(annotation = Transactional.class, attribute = "timeoutString")
+    String timeoutString() default "";
+
     @AliasFor(annotation = Transactional.class, attribute = "readOnly")
     boolean readOnly() default false;
 
@@ -49,6 +55,8 @@ public @interface YdbTransactional {
 
     @AliasFor(annotation = Transactional.class, attribute = "noRollbackForClassName")
     String[] noRollbackForClassName() default {};
+
+    boolean enabled() default true;
 
     int maxRetries() default -1;
 

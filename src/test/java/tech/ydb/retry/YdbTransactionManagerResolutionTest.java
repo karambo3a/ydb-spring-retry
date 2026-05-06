@@ -143,6 +143,28 @@ class YdbTransactionManagerResolutionTest {
         assertEquals("auditTransactionManager", auditAttribute.getQualifier());
     }
 
+    @Test
+    void ydbTransactionalValueAliasShouldExposeTransactionManagerQualifier() throws NoSuchMethodException {
+        AnnotationTransactionAttributeSource attributeSource = new AnnotationTransactionAttributeSource();
+        Method method = MultiManagerService.class.getMethod("ydbValueAliasOperation");
+
+        TransactionAttribute attribute = attributeSource.getTransactionAttribute(method, MultiManagerService.class);
+
+        assertNotNull(attribute);
+        assertEquals("ydbTransactionManager", attribute.getQualifier());
+    }
+
+    @Test
+    void ydbTransactionalTimeoutStringShouldExposeTimeout() throws NoSuchMethodException {
+        AnnotationTransactionAttributeSource attributeSource = new AnnotationTransactionAttributeSource();
+        Method method = MultiManagerService.class.getMethod("ydbTimeoutStringOperation");
+
+        TransactionAttribute attribute = attributeSource.getTransactionAttribute(method, MultiManagerService.class);
+
+        assertNotNull(attribute);
+        assertEquals(15, attribute.getTimeout());
+    }
+
     @Configuration(proxyBeanMethods = false)
     @EnableTransactionManagement
     @Import(YdbTransactionAutoConfiguration.class)
@@ -239,6 +261,14 @@ class YdbTransactionManagerResolutionTest {
 
         @YdbTransactional(transactionManager = "ydbTransactionManager")
         public void ydbOperation() {
+        }
+
+        @YdbTransactional("ydbTransactionManager")
+        public void ydbValueAliasOperation() {
+        }
+
+        @YdbTransactional(timeoutString = "15")
+        public void ydbTimeoutStringOperation() {
         }
 
         @Transactional(transactionManager = "auditTransactionManager")

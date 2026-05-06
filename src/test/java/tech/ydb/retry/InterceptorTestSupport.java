@@ -141,6 +141,26 @@ abstract class InterceptorTestSupport {
             return "ok";
         }
 
+        @YdbTransactional(enabled = false)
+        public String ydbRetryDisabled() {
+            return "ok";
+        }
+
+        @YdbTransactional(enabled = true)
+        public String ydbRetryEnabled() {
+            return "ok";
+        }
+
+        @YdbTransactional("customTransactionManager")
+        public String ydbValueAliasManager() {
+            return "ok";
+        }
+
+        @YdbTransactional(timeoutString = "15")
+        public String ydbTimeoutString() {
+            return "ok";
+        }
+
         @YdbTransactional(maxRetries = 100, slowBackoffBaseMs = 200, fastBackoffBaseMs = 10, slowCapBackoffMs = 10000, fastCapBackoffMs = 12)
         public String ydbNewTransactionSettings() {
             return "ok";

@@ -106,7 +106,7 @@ public final class YdbRetryPolicyConfig {
             return this;
         }
         return new YdbRetryPolicyConfig(
-                enabled,
+                enabled && transactionPolicy.enabled(),
                 checkCandidate("maxRetries", transactionPolicy.maxRetries(), maxRetries),
                 checkCandidate("slowBackoffBaseMs", transactionPolicy.slowBackoffBaseMs(), slowBackoffBaseMs),
                 checkCandidate("fastBackoffBaseMs", transactionPolicy.fastBackoffBaseMs(), fastBackoffBaseMs),

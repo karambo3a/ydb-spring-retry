@@ -206,4 +206,32 @@ class YdbTransactionalConfigOverrideTest extends InterceptorTestSupport {
         assertEquals(1, delays.size());
         assertTrue(delays.getFirst() >= 0);
     }
+
+    @Test
+    void shouldNotRetryWhenMethodDisablesRetry() {
+        TestableInterceptor interceptor = interceptorWithConfig(true, 3, 0, 0, 0, 0, false);
+        interceptor.enqueueOutcome(new ConfigurableStatusException(BAD_SESSION), "ok");
+
+        ConfigurableStatusException exception = assertThrows(
+                ConfigurableStatusException.class,
+                () -> interceptor.invoke(invocationFor("ydbRetryDisabled"))
+        );
+
+        assertEquals(BAD_SESSION, exception.getStatus().getCode());
+        assertEquals(1, interceptor.allInvocations());
+    }
+
+    @Test
+    void shouldNotRetryWhenGlobalConfigDisablesRetryEvenIfMethodEnablesIt() {
+        TestableInterceptor interceptor = interceptorWithConfig(false, 3, 0, 0, 0, 0, false);
+        interceptor.enqueueOutcome(new ConfigurableStatusException(BAD_SESSION), "ok");
+
+        ConfigurableStatusException exception = assertThrows(
+                ConfigurableStatusException.class,
+                () -> interceptor.invoke(invocationFor("ydbRetryEnabled"))
+        );
+
+        assertEquals(BAD_SESSION, exception.getStatus().getCode());
+        assertEquals(1, interceptor.allInvocations());
+    }
 }

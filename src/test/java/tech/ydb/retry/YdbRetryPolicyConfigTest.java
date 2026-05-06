@@ -260,4 +260,52 @@ class YdbRetryPolicyConfigTest extends InterceptorTestSupport {
 
         assertFalse(merged.isEnabled());
     }
+
+    @Test
+    void mergeShouldKeepEnabledTrueWhenConfigEnabled() throws NoSuchMethodException {
+        YdbRetryPolicyConfig original = new YdbRetryPolicyConfig(true, 5, 100, 20, 2000, 300);
+
+        Method method = YdbTransactionalTestService.class.getMethod("defaultRetry");
+        YdbTransactional annotation = AnnotatedElementUtils.findMergedAnnotation(method, YdbTransactional.class);
+
+        YdbRetryPolicyConfig merged = original.merge(annotation);
+
+        assertTrue(merged.isEnabled());
+    }
+
+    @Test
+    void mergeWithDefaultAnnotationShouldKeepEnabledFalseWhenConfigDisabled() throws NoSuchMethodException {
+        YdbRetryPolicyConfig original = new YdbRetryPolicyConfig(false, 5, 100, 20, 2000, 300);
+
+        Method method = YdbTransactionalTestService.class.getMethod("defaultRetry");
+        YdbTransactional annotation = AnnotatedElementUtils.findMergedAnnotation(method, YdbTransactional.class);
+
+        YdbRetryPolicyConfig merged = original.merge(annotation);
+
+        assertFalse(merged.isEnabled());
+    }
+
+    @Test
+    void mergeWithDisabledAnnotationShouldSetEnabledFalse() throws NoSuchMethodException {
+        YdbRetryPolicyConfig original = new YdbRetryPolicyConfig(true, 5, 100, 20, 2000, 300);
+
+        Method method = YdbTransactionalTestService.class.getMethod("ydbRetryDisabled");
+        YdbTransactional annotation = AnnotatedElementUtils.findMergedAnnotation(method, YdbTransactional.class);
+
+        YdbRetryPolicyConfig merged = original.merge(annotation);
+
+        assertFalse(merged.isEnabled());
+    }
+
+    @Test
+    void mergeWithEnabledAnnotationShouldNotOverrideDisabledGlobalConfig() throws NoSuchMethodException {
+        YdbRetryPolicyConfig original = new YdbRetryPolicyConfig(false, 5, 100, 20, 2000, 300);
+
+        Method method = YdbTransactionalTestService.class.getMethod("ydbRetryEnabled");
+        YdbTransactional annotation = AnnotatedElementUtils.findMergedAnnotation(method, YdbTransactional.class);
+
+        YdbRetryPolicyConfig merged = original.merge(annotation);
+
+        assertFalse(merged.isEnabled());
+    }
 }
