@@ -39,16 +39,17 @@ class TransactionPropagationRetryTest extends InterceptorTestSupport {
     }
 
     @Test
-    void shouldRetryWithNestedPropagationInsideOuterTransaction() throws Throwable {
+    void shouldDisableRetryWithNestedPropagationInsideOuterTransaction() {
         TransactionSynchronizationManager.setActualTransactionActive(true);
 
         TestableInterceptor interceptor = interceptorWithConfig(true, 1, 0, 0, 0, 0, false);
-        interceptor.enqueueOutcome(new ConfigurableStatusException(ABORTED), "ok");
+        interceptor.enqueueOutcome(new ConfigurableStatusException(ABORTED));
 
-        Object result = interceptor.invoke(invocationFor("ydbNestedRetry"));
-
-        assertEquals("ok", result);
-        assertEquals(2, interceptor.allInvocations());
+        assertThrows(
+                ConfigurableStatusException.class,
+                () -> interceptor.invoke(invocationFor("ydbNestedRetry"))
+        );
+        assertEquals(1, interceptor.allInvocations());
     }
 
     @Test

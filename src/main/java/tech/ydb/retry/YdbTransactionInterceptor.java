@@ -104,7 +104,6 @@ public class YdbTransactionInterceptor extends TransactionInterceptor {
         int propagationBehavior = txAttr.getPropagationBehavior();
 
         return propagationBehavior != TransactionDefinition.PROPAGATION_REQUIRES_NEW
-                && propagationBehavior != TransactionDefinition.PROPAGATION_NESTED
                 && propagationBehavior != TransactionDefinition.PROPAGATION_NOT_SUPPORTED
                 && propagationBehavior != TransactionDefinition.PROPAGATION_NEVER;
     }
