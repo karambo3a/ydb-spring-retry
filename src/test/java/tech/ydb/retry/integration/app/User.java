@@ -1,11 +1,10 @@
 package tech.ydb.retry.integration.app;
 
+import java.util.Objects;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.domain.Persistable;
 import org.springframework.data.relational.core.mapping.Table;
 import org.springframework.data.util.ProxyUtils;
-
-import java.util.Objects;
 
 @Table(name = "Users")
 public class User implements Persistable<Long> {

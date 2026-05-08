@@ -1,5 +1,8 @@
 package tech.ydb.retry.integration;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -10,9 +13,6 @@ import tech.ydb.core.StatusCode;
 import tech.ydb.retry.integration.app.User;
 import tech.ydb.retry.integration.app.UserApplication;
 import tech.ydb.retry.integration.app.UserService;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 @SpringBootTest(classes = UserApplication.class)
 @ActiveProfiles({"enabled", "ydb"})
@@ -29,10 +29,9 @@ class CommitTransactionRetryTest extends YdbDockerTest {
     }
 
     @ParameterizedTest(name = "CommitTransaction")
-    @EnumSource(value = StatusCode.class, names = {
-            "ABORTED", "UNAVAILABLE", "OVERLOADED", "BAD_SESSION",
-            "SESSION_BUSY"
-    })
+    @EnumSource(
+            value = StatusCode.class,
+            names = {"ABORTED", "UNAVAILABLE", "OVERLOADED", "BAD_SESSION", "SESSION_BUSY"})
     void shouldRecoverFromRetryableCommitError(StatusCode code) {
         DeterministicErrorChannel.configure().onError("commitTransaction", 1, code);
 
@@ -43,9 +42,9 @@ class CommitTransactionRetryTest extends YdbDockerTest {
     }
 
     @ParameterizedTest(name = "CommitTransaction")
-    @EnumSource(value = StatusCode.class, names = {
-            "ABORTED", "UNAVAILABLE"
-    })
+    @EnumSource(
+            value = StatusCode.class,
+            names = {"ABORTED", "UNAVAILABLE"})
     void shouldRecoverFromMultipleCommitErrors(StatusCode code) {
         DeterministicErrorChannel.configure()
                 .onError("commitTransaction", 1, code)

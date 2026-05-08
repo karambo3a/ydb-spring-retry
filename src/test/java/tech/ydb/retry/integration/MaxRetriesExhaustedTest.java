@@ -1,5 +1,9 @@
 package tech.ydb.retry.integration;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,11 +13,6 @@ import tech.ydb.core.StatusCode;
 import tech.ydb.retry.integration.app.User;
 import tech.ydb.retry.integration.app.UserApplication;
 import tech.ydb.retry.integration.app.UserService;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest(classes = UserApplication.class)
 @ActiveProfiles({"enabled", "ydb"})
@@ -37,7 +36,8 @@ class MaxRetriesExhaustedTest extends YdbDockerTest {
                 .onError("executeQuery", 3, StatusCode.ABORTED)
                 .onError("executeQuery", 4, StatusCode.ABORTED);
 
-        assertThrows(Exception.class,
+        assertThrows(
+                Exception.class,
                 () -> userService.saveWithMaxRetries3(createUser(1L, "user1", "first1", "last1")));
         assertEquals(4, DeterministicErrorChannel.getCallCount("executeQuery"));
     }

@@ -1,5 +1,10 @@
 package tech.ydb.retry.integration;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,11 +14,6 @@ import tech.ydb.core.StatusCode;
 import tech.ydb.retry.integration.app.User;
 import tech.ydb.retry.integration.app.UserApplication;
 import tech.ydb.retry.integration.app.UserService;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest(classes = UserApplication.class)
 @ActiveProfiles({"enabled", "ydb"})
@@ -62,7 +62,8 @@ class CombinedErrorIntegrationTest extends YdbDockerTest {
                 .onError("executeQuery", 1, StatusCode.ABORTED)
                 .onError("commitTransaction", 1, StatusCode.SCHEME_ERROR);
 
-        assertThrows(Exception.class, () -> userService.save(createUser(3L, "user3", "first3", "last3")));
+        assertThrows(
+                Exception.class, () -> userService.save(createUser(3L, "user3", "first3", "last3")));
 
         assertEquals(2, DeterministicErrorChannel.getCallCount("executeQuery"));
         assertEquals(1, DeterministicErrorChannel.getCallCount("commitTransaction"));

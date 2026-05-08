@@ -1,5 +1,11 @@
 package tech.ydb.retry;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
+import java.lang.reflect.Method;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
@@ -8,8 +14,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.TransactionManager;
 import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.TransactionManager;
 import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.annotation.AnnotationTransactionAttributeSource;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
@@ -19,20 +25,15 @@ import org.springframework.transaction.interceptor.TransactionAttribute;
 import org.springframework.transaction.interceptor.TransactionInterceptor;
 import org.springframework.transaction.support.SimpleTransactionStatus;
 
-import java.lang.reflect.Method;
-import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-
 class YdbTransactionManagerResolutionTest {
 
     @Test
     void shouldUseSingleManager() {
-        try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(SingleManagerConfig.class)) {
+        try (AnnotationConfigApplicationContext context =
+                     new AnnotationConfigApplicationContext(SingleManagerConfig.class)) {
             SingleManagerService service = context.getBean(SingleManagerService.class);
-            RecordingTransactionManager manager = context.getBean("singleManager", RecordingTransactionManager.class);
+            RecordingTransactionManager manager =
+                    context.getBean("singleManager", RecordingTransactionManager.class);
 
             service.defaultOperation();
 
@@ -46,10 +47,13 @@ class YdbTransactionManagerResolutionTest {
 
     @Test
     void shouldResolveExplicitTransactionManagersWithoutPrimary() {
-        try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(MultiManagerConfig.class)) {
+        try (AnnotationConfigApplicationContext context =
+                     new AnnotationConfigApplicationContext(MultiManagerConfig.class)) {
             MultiManagerService service = context.getBean(MultiManagerService.class);
-            RecordingTransactionManager ydbManager = context.getBean("ydbTransactionManager", RecordingTransactionManager.class);
-            RecordingTransactionManager auditManager = context.getBean("auditTransactionManager", RecordingTransactionManager.class);
+            RecordingTransactionManager ydbManager =
+                    context.getBean("ydbTransactionManager", RecordingTransactionManager.class);
+            RecordingTransactionManager auditManager =
+                    context.getBean("auditTransactionManager", RecordingTransactionManager.class);
 
             service.ydbOperation();
 
@@ -78,10 +82,14 @@ class YdbTransactionManagerResolutionTest {
 
     @Test
     void shouldUseConfigurerDefaultTransactionManager() {
-        try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(ConfigurerDefaultManagerConfig.class)) {
-            ConfigurerDefaultManagerService service = context.getBean(ConfigurerDefaultManagerService.class);
-            RecordingTransactionManager ydbManager = context.getBean("ydbTransactionManager", RecordingTransactionManager.class);
-            RecordingTransactionManager auditManager = context.getBean("auditTransactionManager", RecordingTransactionManager.class);
+        try (AnnotationConfigApplicationContext context =
+                     new AnnotationConfigApplicationContext(ConfigurerDefaultManagerConfig.class)) {
+            ConfigurerDefaultManagerService service =
+                    context.getBean(ConfigurerDefaultManagerService.class);
+            RecordingTransactionManager ydbManager =
+                    context.getBean("ydbTransactionManager", RecordingTransactionManager.class);
+            RecordingTransactionManager auditManager =
+                    context.getBean("auditTransactionManager", RecordingTransactionManager.class);
 
             service.defaultSpringOperation();
 
@@ -104,10 +112,13 @@ class YdbTransactionManagerResolutionTest {
 
     @Test
     void shouldUsePrimaryTransactionManager() {
-        try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(PrimaryManagerConfig.class)) {
+        try (AnnotationConfigApplicationContext context =
+                     new AnnotationConfigApplicationContext(PrimaryManagerConfig.class)) {
             PrimaryManagerService service = context.getBean(PrimaryManagerService.class);
-            RecordingTransactionManager primaryManager = context.getBean("primaryTransactionManager", RecordingTransactionManager.class);
-            RecordingTransactionManager secondaryManager = context.getBean("secondaryTransactionManager", RecordingTransactionManager.class);
+            RecordingTransactionManager primaryManager =
+                    context.getBean("primaryTransactionManager", RecordingTransactionManager.class);
+            RecordingTransactionManager secondaryManager =
+                    context.getBean("secondaryTransactionManager", RecordingTransactionManager.class);
 
             service.defaultSpringOperation();
 
@@ -130,12 +141,15 @@ class YdbTransactionManagerResolutionTest {
 
     @Test
     void ydbTransactionalAliasShouldExposeTransactionManagerQualifier() throws NoSuchMethodException {
-        AnnotationTransactionAttributeSource attributeSource = new AnnotationTransactionAttributeSource();
+        AnnotationTransactionAttributeSource attributeSource =
+                new AnnotationTransactionAttributeSource();
         Method ydbMethod = MultiManagerService.class.getMethod("ydbOperation");
         Method auditMethod = MultiManagerService.class.getMethod("auditOperation");
 
-        TransactionAttribute ydbAttribute = attributeSource.getTransactionAttribute(ydbMethod, MultiManagerService.class);
-        TransactionAttribute auditAttribute = attributeSource.getTransactionAttribute(auditMethod, MultiManagerService.class);
+        TransactionAttribute ydbAttribute =
+                attributeSource.getTransactionAttribute(ydbMethod, MultiManagerService.class);
+        TransactionAttribute auditAttribute =
+                attributeSource.getTransactionAttribute(auditMethod, MultiManagerService.class);
 
         assertNotNull(ydbAttribute);
         assertNotNull(auditAttribute);
@@ -144,11 +158,14 @@ class YdbTransactionManagerResolutionTest {
     }
 
     @Test
-    void ydbTransactionalValueAliasShouldExposeTransactionManagerQualifier() throws NoSuchMethodException {
-        AnnotationTransactionAttributeSource attributeSource = new AnnotationTransactionAttributeSource();
+    void ydbTransactionalValueAliasShouldExposeTransactionManagerQualifier()
+            throws NoSuchMethodException {
+        AnnotationTransactionAttributeSource attributeSource =
+                new AnnotationTransactionAttributeSource();
         Method method = MultiManagerService.class.getMethod("ydbValueAliasOperation");
 
-        TransactionAttribute attribute = attributeSource.getTransactionAttribute(method, MultiManagerService.class);
+        TransactionAttribute attribute =
+                attributeSource.getTransactionAttribute(method, MultiManagerService.class);
 
         assertNotNull(attribute);
         assertEquals("ydbTransactionManager", attribute.getQualifier());
@@ -156,10 +173,12 @@ class YdbTransactionManagerResolutionTest {
 
     @Test
     void ydbTransactionalTimeoutStringShouldExposeTimeout() throws NoSuchMethodException {
-        AnnotationTransactionAttributeSource attributeSource = new AnnotationTransactionAttributeSource();
+        AnnotationTransactionAttributeSource attributeSource =
+                new AnnotationTransactionAttributeSource();
         Method method = MultiManagerService.class.getMethod("ydbTimeoutStringOperation");
 
-        TransactionAttribute attribute = attributeSource.getTransactionAttribute(method, MultiManagerService.class);
+        TransactionAttribute attribute =
+                attributeSource.getTransactionAttribute(method, MultiManagerService.class);
 
         assertNotNull(attribute);
         assertEquals(15, attribute.getTimeout());

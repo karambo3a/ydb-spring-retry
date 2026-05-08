@@ -1,16 +1,16 @@
 package tech.ydb.retry;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 import org.springframework.transaction.annotation.AnnotationTransactionAttributeSource;
 import org.springframework.transaction.interceptor.TransactionAttributeSource;
-
-import static org.junit.jupiter.api.Assertions.assertNotSame;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class YdbTransactionInterceptorFactoryTest {
 
@@ -34,7 +34,6 @@ class YdbTransactionInterceptorFactoryTest {
         YdbRetryProperties properties = new YdbRetryProperties();
         properties.setEnabled(false);
         properties.setMaxRetries(3);
-        properties.setIdempotent(true);
         YdbTransactionInterceptorFactory factory = new YdbTransactionInterceptorFactory();
         factory.setRetryProperties(properties);
         factory.setTransactionAttributeSource(new AnnotationTransactionAttributeSource());
