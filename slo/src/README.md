@@ -1,7 +1,7 @@
 # SLO Workload Application
 
 A Spring Boot load-generation tool that drives read/write traffic against a YDB table and exposes
-metrics to Prometheus via OpenTelemetry. Used to measure how the **ydb-spring-retry** library
+metrics to Prometheus via OpenTelemetry. Used to measure how the **spring-ydb-retry** library
 reduces visible application errors under cluster-level fault injection.
 
 ## Quick Start

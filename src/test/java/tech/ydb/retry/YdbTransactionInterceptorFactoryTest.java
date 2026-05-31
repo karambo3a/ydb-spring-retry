@@ -1,16 +1,16 @@
 package tech.ydb.retry;
 
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.support.DefaultListableBeanFactory;
+import org.springframework.transaction.annotation.AnnotationTransactionAttributeSource;
+import org.springframework.transaction.interceptor.TransactionAttributeSource;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.support.DefaultListableBeanFactory;
-import org.springframework.transaction.annotation.AnnotationTransactionAttributeSource;
-import org.springframework.transaction.interceptor.TransactionAttributeSource;
 
 class YdbTransactionInterceptorFactoryTest {
 
@@ -42,11 +42,29 @@ class YdbTransactionInterceptorFactoryTest {
     }
 
     @Test
-    void getObjectShouldThrowNpeWhenRetryPropertiesIsNull() {
+    void getObjectShouldThrowIllegalStateWhenRetryPropertiesIsNull() {
         YdbTransactionInterceptorFactory factory = new YdbTransactionInterceptorFactory();
         factory.setTransactionAttributeSource(new AnnotationTransactionAttributeSource());
 
-        assertThrows(NullPointerException.class, factory::getObject);
+        IllegalStateException exception =
+                assertThrows(IllegalStateException.class, factory::getObject);
+
+        assertEquals(
+                "retryProperties must be set before creating YdbTransactionInterceptor",
+                exception.getMessage());
+    }
+
+    @Test
+    void getObjectShouldThrowIllegalStateWhenTransactionAttributeSourceIsNull() {
+        YdbTransactionInterceptorFactory factory = new YdbTransactionInterceptorFactory();
+        factory.setRetryProperties(new YdbRetryProperties());
+
+        IllegalStateException exception =
+                assertThrows(IllegalStateException.class, factory::getObject);
+
+        assertEquals(
+                "transactionAttributeSource must be set before creating YdbTransactionInterceptor",
+                exception.getMessage());
     }
 
     @Test

@@ -1,11 +1,11 @@
 package tech.ydb.retry.integration;
 
+import org.junit.jupiter.api.Test;
+
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static tech.ydb.core.StatusCode.ABORTED;
 import static tech.ydb.core.StatusCode.CLIENT_CANCELLED;
-
-import org.junit.jupiter.api.Test;
 
 @YdbIntegrationTest
 class DeterministicErrorChannelTest {

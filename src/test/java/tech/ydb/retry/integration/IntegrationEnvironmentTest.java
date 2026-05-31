@@ -1,10 +1,10 @@
 package tech.ydb.retry.integration;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
-
 import org.junit.jupiter.api.Test;
 import org.testcontainers.DockerClientFactory;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 @YdbIntegrationTest
 class IntegrationEnvironmentTest {

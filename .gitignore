@@ -26,4 +26,11 @@ replay_pid*
 .DS_Store
 .idea/
 */.DS_Store
+*/target
 /target
+*.iml
+
+slo/playground/data/
+slo/playground/results/
+slo/results/
+slo/bin/

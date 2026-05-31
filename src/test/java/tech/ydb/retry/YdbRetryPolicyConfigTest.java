@@ -1,5 +1,9 @@
 package tech.ydb.retry;
 
+import java.lang.reflect.Method;
+import org.junit.jupiter.api.Test;
+import org.springframework.core.annotation.AnnotatedElementUtils;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -10,10 +14,6 @@ import static tech.ydb.retry.YdbRetryPolicyConfig.DEFAULT_FAST_CAP_BACKOFF_MS;
 import static tech.ydb.retry.YdbRetryPolicyConfig.DEFAULT_MAX_RETRIES;
 import static tech.ydb.retry.YdbRetryPolicyConfig.DEFAULT_SLOW_BACKOFF_BASE_MS;
 import static tech.ydb.retry.YdbRetryPolicyConfig.DEFAULT_SLOW_CAP_BACKOFF_MS;
-
-import java.lang.reflect.Method;
-import org.junit.jupiter.api.Test;
-import org.springframework.core.annotation.AnnotatedElementUtils;
 
 class YdbRetryPolicyConfigTest extends InterceptorTestSupport {
 

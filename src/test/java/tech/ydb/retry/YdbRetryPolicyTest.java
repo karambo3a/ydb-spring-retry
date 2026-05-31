@@ -1,5 +1,9 @@
 package tech.ydb.retry;
 
+import java.util.List;
+import org.junit.jupiter.api.Test;
+import tech.ydb.core.StatusCode;
+
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static tech.ydb.core.StatusCode.ABORTED;
@@ -23,10 +27,6 @@ import static tech.ydb.core.StatusCode.UNAUTHORIZED;
 import static tech.ydb.core.StatusCode.UNAVAILABLE;
 import static tech.ydb.core.StatusCode.UNDETERMINED;
 import static tech.ydb.core.StatusCode.UNSUPPORTED;
-
-import java.util.List;
-import org.junit.jupiter.api.Test;
-import tech.ydb.core.StatusCode;
 
 class YdbRetryPolicyTest {
     @Test

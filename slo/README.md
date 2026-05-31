@@ -1,6 +1,6 @@
 # SLO Testing for YDB Spring Retry
 
-SLO (Service Level Objectives) testing validates that the **ydb-spring-retry** library reduces visible application
+SLO (Service Level Objectives) testing validates that the **spring-ydb-retry** library reduces visible application
 errors during YDB cluster node failures — restarts, shutdowns, network issues, and kill signals.
 
 ## How It Works

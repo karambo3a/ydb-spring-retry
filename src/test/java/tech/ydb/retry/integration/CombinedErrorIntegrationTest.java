@@ -1,10 +1,5 @@
 package tech.ydb.retry.integration;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,6 +9,11 @@ import tech.ydb.core.StatusCode;
 import tech.ydb.retry.integration.app.User;
 import tech.ydb.retry.integration.app.UserApplication;
 import tech.ydb.retry.integration.app.UserService;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest(classes = UserApplication.class)
 @ActiveProfiles({"enabled", "ydb"})

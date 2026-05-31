@@ -1,14 +1,14 @@
 package tech.ydb.retry;
 
+import java.util.HashSet;
+import java.util.Set;
+import org.junit.jupiter.api.Test;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static tech.ydb.core.StatusCode.ABORTED;
 import static tech.ydb.core.StatusCode.OVERLOADED;
 import static tech.ydb.core.StatusCode.UNAVAILABLE;
-
-import java.util.HashSet;
-import java.util.Set;
-import org.junit.jupiter.api.Test;
 
 class YdbDelayCalculatorTest {
 

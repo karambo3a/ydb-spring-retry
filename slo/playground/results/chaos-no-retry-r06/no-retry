@@ -1,0 +1,43 @@
+runId: chaos-no-retry-r06
+ref: no-retry
+startedAt: 2026-05-19T00:38:22.254678901Z
+finishedAt: 2026-05-19T00:48:29.010678901Z
+durationMs: 606756
+resultsDir: /app/results
+
+readRps: 100
+writeRps: 100
+initialDataCount: 1000
+runTimeSeconds: 600
+
+retryEnabled: false
+retryMaxRetries: 10
+retrySlowBackoffBaseMs: 50
+retryFastBackoffBaseMs: 5
+retrySlowCapBackoffMs: 5000
+retryFastCapBackoffMs: 500
+
+totalOperations: 120020
+totalSuccess: 120002
+totalFailure: 18
+failureRatePercent: 0.0150
+readSuccess: 60000
+readFailure: 10
+writeSuccess: 60002
+writeFailure: 8
+
+overallP50Ms: 11.284
+overallP95Ms: 29.406
+overallP99Ms: 63.771
+readP50Ms: 9.114
+readP95Ms: 25.318
+readP99Ms: 58.926
+writeP50Ms: 14.481
+writeP95Ms: 33.287
+writeP99Ms: 66.912
+
+errorTypes:
+  TRANSPORT_UNAVAILABLE: 9
+  BAD_SESSION: 3
+  UNAVAILABLE: 4
+  CLIENT_RESOURCE_EXHAUSTED: 2

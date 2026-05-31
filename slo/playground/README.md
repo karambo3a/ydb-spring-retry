@@ -1,22 +1,24 @@
 # Playground
 
-Docker Compose environments for running SLO tests with chaos injection. Each scenario deploys a full YDB cluster, two workload applications (with and without retry), Prometheus, Grafana, and a chaos container.
+Docker Compose environments for running SLO tests with chaos injection. Each scenario deploys a full YDB cluster, two
+workload applications (with and without retry), Prometheus, Grafana, and a chaos container.
 
 ## Shared Infrastructure
 
 All scenarios use the same architecture:
 
-| Component | Count | Description |
-|---|---|---|
-| YDB static node | 1 | Storage node + discovery (`static-0`) |
-| YDB database nodes | 5 | Tenant nodes (`database-1` .. `database-5`) |
-| SLO app with retry | 1 | Port 8081, retry enabled |
-| SLO app without retry | 1 | Port 8082, retry disabled |
-| Prometheus | 1 | Scrapes metrics every 5s |
-| Grafana | 1 | Visualization on port 3000 |
-| Chaos container | 1 | Docker container with docker.sock access |
+| Component             | Count | Description                                 |
+|-----------------------|-------|---------------------------------------------|
+| YDB static node       | 1     | Storage node + discovery (`static-0`)       |
+| YDB database nodes    | 5     | Tenant nodes (`database-1` .. `database-5`) |
+| SLO app with retry    | 1     | Port 8081, retry enabled                    |
+| SLO app without retry | 1     | Port 8082, retry disabled                   |
+| Prometheus            | 1     | Scrapes metrics every 5s                    |
+| Grafana               | 1     | Visualization on port 3000                  |
+| Chaos container       | 1     | Docker container with docker.sock access    |
 
-All services run on a single Docker network `slo-network`. The YDB cluster uses erasure `none` (no storage-level replication), which amplifies the impact of failures.
+All services run on a single Docker network `slo-network`. The YDB cluster uses erasure `none` (no storage-level
+replication), which amplifies the impact of failures.
 
 ---
 
@@ -35,25 +37,20 @@ docker compose up --build -d
 
 The chaos script starts 60 seconds after launch (once YDB and apps are ready).
 
-| Phase | Iterations | Action | Pause | Generated Errors |
-|---|---|---|---|---|
-| Stop/Start | 5 | `docker stop` → `docker start` a random node | 60s | `UNAVAILABLE`, `TRANSPORT_UNAVAILABLE` |
-| Restart | 3 | `docker restart -t 0` a random node (instant) | 60s | `TRANSPORT_UNAVAILABLE` |
-| Final Kill | 1 | `docker kill -s SIGKILL` a random node | — | `UNAVAILABLE`, `BAD_SESSION` |
+| Phase      | Iterations | Action                                        | Pause | Generated Errors                       |
+|------------|------------|-----------------------------------------------|-------|----------------------------------------|
+| Stop/Start | 5          | `docker stop` → `docker start` a random node  | 60s   | `UNAVAILABLE`, `TRANSPORT_UNAVAILABLE` |
+| Restart    | 3          | `docker restart -t 0` a random node (instant) | 60s   | `TRANSPORT_UNAVAILABLE`                |
+| Final Kill | 1          | `docker kill -s SIGKILL` a random node        | —     | `UNAVAILABLE`, `BAD_SESSION`           |
 
 **Total chaos duration:** ~8 minutes after the 60s delay.
-
-### What to observe
-
-- On `docker stop/start` — gradual error increase that retry successfully compensates for
-- On `docker restart -t 0` — sharp error spike for `no-retry`, while `with-retry` is barely affected
-- On `SIGKILL` — most pronounced error spikes for `no-retry`
 
 ---
 
 ## Scenario 2: `chaos-aggressive/` — Aggressive Chaos
 
-An intensive scenario with multi-node failures, pause/unpause, and rapid kill/start cycles. YDB nodes run with constrained resources (768 MB RAM, 1 CPU), amplifying the effect.
+An intensive scenario with multi-node failures, pause/unpause, and rapid kill/start cycles. YDB nodes run with
+constrained resources (768 MB RAM, 1 CPU), amplifying the effect.
 
 ### Start
 
@@ -64,24 +61,16 @@ docker compose up --build -d
 
 ### Chaos Phases (`chaos.sh`)
 
-| Phase | Iterations | Action | Pause | Generated Errors |
-|---|---|---|---|---|
-| 1. Pause/Unpause | 4 | `docker pause` 20s → `docker unpause` one node | 15s | `TIMEOUT` (in-flight ops hang) |
-| 2. Multi-node Kill | 3 | `SIGKILL` **two** nodes simultaneously → `docker start` both | 25s | `OVERLOADED`, `BAD_SESSION` |
-| 3. Instant Restart | 3 | `docker restart -t 0` one node | 20s | `TRANSPORT_UNAVAILABLE` |
-| 4. Dual Pause | 1 | `docker pause` **two** nodes for 30s → unpause | 15s | Extended `TIMEOUT`, `OVERLOADED` |
-| 5. Rapid Kill/Start | 5 | `SIGKILL` → `docker start` with no gap | 8s | `SESSION_BUSY`, `BAD_SESSION` (thrashing) |
-| 6. Final Triple Kill | 1 | `SIGKILL` **three** nodes simultaneously | — | Mass `UNAVAILABLE` |
+| Phase                | Iterations | Action                                                       | Pause |
+|----------------------|------------|--------------------------------------------------------------|-------|
+| 1. Pause/Unpause     | 4          | `docker pause` 20s → `docker unpause` one node               | 15s   |
+| 2. Multi-node Kill   | 3          | `SIGKILL` **two** nodes simultaneously → `docker start` both | 25s   |
+| 3. Instant Restart   | 3          | `docker restart -t 0` one node                               | 20s   |
+| 4. Dual Pause        | 1          | `docker pause` **two** nodes for 30s → unpause               | 15s   |
+| 5. Rapid Kill/Start  | 5          | `SIGKILL` → `docker start` with no gap                       | 8s    |
+| 6. Final Triple Kill | 1          | `SIGKILL` **three** nodes simultaneously                     | —     |
 
 **Total chaos duration:** ~7 minutes after the 60s delay.
-
-### What to observe
-
-- **Phase 1 (pause):** `docker pause` freezes processes — in-flight operations hang and time out. Retry gives a chance to wait for unpause
-- **Phase 2 (multi-kill):** Simultaneous loss of 2 out of 5 nodes causes cascading effects — surviving nodes become overloaded. Retry helps weather the recovery window
-- **Phase 4 (dual pause):** Losing 2/5 nodes for 30 seconds is the most stressful event for the session pool
-- **Phase 5 (rapid):** Fast kill/start cycles cause session pool thrashing — `BAD_SESSION` and `SESSION_BUSY`. Retry with backoff helps avoid dropping requests
-- **Phase 6 (triple kill):** Losing 3/5 nodes is an extreme scenario that demonstrates the limits of retry
 
 ---
 
@@ -89,7 +78,8 @@ docker compose up --build -d
 
 ### `configs/ydb.yaml`
 
-YDB cluster configuration with erasure `none`, a single storage pool (SSD), and 5 database nodes connected to the tenant `/Root/testdb`.
+YDB cluster configuration with erasure `none`, a single storage pool (SSD), and 5 database nodes connected to the tenant
+`/Root/testdb`.
 
 ### `configs/prometheus/prometheus.yaml`
 

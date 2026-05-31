@@ -1,5 +1,9 @@
 package tech.ydb.retry;
 
+import java.util.ArrayList;
+import java.util.List;
+import org.junit.jupiter.api.Test;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -13,10 +17,6 @@ import static tech.ydb.core.StatusCode.SESSION_EXPIRED;
 import static tech.ydb.core.StatusCode.TIMEOUT;
 import static tech.ydb.core.StatusCode.TRANSPORT_UNAVAILABLE;
 import static tech.ydb.core.StatusCode.UNDETERMINED;
-
-import java.util.ArrayList;
-import java.util.List;
-import org.junit.jupiter.api.Test;
 
 class YdbTransactionalConfigOverrideTest extends InterceptorTestSupport {
 
@@ -130,6 +130,19 @@ class YdbTransactionalConfigOverrideTest extends InterceptorTestSupport {
         interceptor.enqueueOutcome(new ConfigurableStatusException(CLIENT_CANCELLED), "ok");
 
         Object result = interceptor.invoke(invocationFor("ydbIdempotentRetry"));
+
+        assertEquals("ok", result);
+        assertEquals(2, interceptor.allInvocations());
+    }
+
+    @Test
+    void shouldUseInterfaceMethodYdbTransactionalOverrides() throws Throwable {
+        TestableInterceptor interceptor = interceptorWithConfig(true, 1, 0, 0, 0, 0);
+        interceptor.enqueueOutcome(new ConfigurableStatusException(CLIENT_CANCELLED), "ok");
+
+        Object result = interceptor.invoke(invocationFor(
+                InterfaceAnnotatedService.class.getMethod("interfaceAnnotatedIdempotentRetry"),
+                new InterfaceAnnotatedServiceImpl()));
 
         assertEquals("ok", result);
         assertEquals(2, interceptor.allInvocations());
@@ -305,7 +318,7 @@ class YdbTransactionalConfigOverrideTest extends InterceptorTestSupport {
         interceptor.invoke(invocationFor("ydbIdempotentRetry"));
 
         assertEquals(1, delays.size());
-        assertTrue(delays.getFirst() >= 0);
+        assertTrue(delays.get(0) >= 0);
     }
 
     @Test
@@ -347,5 +360,17 @@ class YdbTransactionalConfigOverrideTest extends InterceptorTestSupport {
 
         assertEquals(BAD_SESSION, exception.getStatus().getCode());
         assertEquals(1, interceptor.allInvocations());
+    }
+
+    interface InterfaceAnnotatedService {
+        @YdbTransactional(maxRetries = 2, idempotent = true)
+        String interfaceAnnotatedIdempotentRetry();
+    }
+
+    static final class InterfaceAnnotatedServiceImpl implements InterfaceAnnotatedService {
+        @Override
+        public String interfaceAnnotatedIdempotentRetry() {
+            return "ok";
+        }
     }
 }

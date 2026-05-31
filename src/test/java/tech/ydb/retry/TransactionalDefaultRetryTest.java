@@ -1,5 +1,9 @@
 package tech.ydb.retry;
 
+import java.util.ArrayList;
+import java.util.List;
+import org.junit.jupiter.api.Test;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -9,10 +13,6 @@ import static tech.ydb.core.StatusCode.BAD_SESSION;
 import static tech.ydb.core.StatusCode.CLIENT_INTERNAL_ERROR;
 import static tech.ydb.core.StatusCode.TIMEOUT;
 import static tech.ydb.core.StatusCode.UNAUTHORIZED;
-
-import java.util.ArrayList;
-import java.util.List;
-import org.junit.jupiter.api.Test;
 
 class TransactionalDefaultRetryTest extends InterceptorTestSupport {
 

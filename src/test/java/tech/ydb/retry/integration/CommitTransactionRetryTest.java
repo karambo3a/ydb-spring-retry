@@ -1,8 +1,5 @@
 package tech.ydb.retry.integration;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -13,6 +10,9 @@ import tech.ydb.core.StatusCode;
 import tech.ydb.retry.integration.app.User;
 import tech.ydb.retry.integration.app.UserApplication;
 import tech.ydb.retry.integration.app.UserService;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 @SpringBootTest(classes = UserApplication.class)
 @ActiveProfiles({"enabled", "ydb"})
