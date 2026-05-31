@@ -1,0 +1,41 @@
+runId: chaos-aggr-with-retry-r07
+ref: with-retry
+startedAt: 2026-05-19T12:27:01.361751715Z
+finishedAt: 2026-05-19T12:37:09.462360885Z
+durationMs: 608100
+resultsDir: /app/results
+
+readRps: 100
+writeRps: 100
+initialDataCount: 1000
+runTimeSeconds: 600
+
+retryEnabled: true
+retryMaxRetries: 10
+retrySlowBackoffBaseMs: 50
+retryFastBackoffBaseMs: 5
+retrySlowCapBackoffMs: 5000
+retryFastCapBackoffMs: 500
+
+totalOperations: 120020
+totalSuccess: 119835
+totalFailure: 185
+failureRatePercent: 0.1541
+readSuccess: 59919
+readFailure: 91
+writeSuccess: 59916
+writeFailure: 94
+
+overallP50Ms: 11.139
+overallP95Ms: 30.327
+overallP99Ms: 67.172
+readP50Ms: 8.628
+readP95Ms: 26.402
+readP99Ms: 60.767
+writeP50Ms: 15.609
+writeP95Ms: 33.625
+writeP99Ms: 72.547
+
+errorTypes:
+  UNDETERMINED: 94
+  UNAVAILABLE: 91

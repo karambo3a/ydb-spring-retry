@@ -1,0 +1,40 @@
+runId: chaos-retry-r08
+ref: with-retry
+startedAt: 2026-05-19T00:27:03.193567890Z
+finishedAt: 2026-05-19T00:37:10.410567890Z
+durationMs: 607217
+resultsDir: /app/results
+
+readRps: 100
+writeRps: 100
+initialDataCount: 1000
+runTimeSeconds: 600
+
+retryEnabled: true
+retryMaxRetries: 10
+retrySlowBackoffBaseMs: 50
+retryFastBackoffBaseMs: 5
+retrySlowCapBackoffMs: 5000
+retryFastCapBackoffMs: 500
+
+totalOperations: 120020
+totalSuccess: 120020
+totalFailure: 0
+failureRatePercent: 0.0000
+readSuccess: 60010
+readFailure: 0
+writeSuccess: 60010
+writeFailure: 0
+
+overallP50Ms: 11.406
+overallP95Ms: 29.989
+overallP99Ms: 65.877
+readP50Ms: 9.514
+readP95Ms: 24.303
+readP99Ms: 57.931
+writeP50Ms: 15.182
+writeP95Ms: 34.708
+writeP99Ms: 69.118
+
+errorTypes:
+  none
